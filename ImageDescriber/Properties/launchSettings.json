@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "ImageDescriber": {
+      "commandName": "Project",
+      "commandLineArgs": "-p ."
+    }
+  }
+}
