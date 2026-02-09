@@ -15,6 +15,24 @@ using ktsu.Semantics.Strings;
 [Verb("Scan", HelpText = "Scan a directory for images, describe them using Ollama, and store results.")]
 internal sealed class Scan : BaseVerb<Scan>
 {
+	internal override bool ValidateArgs()
+	{
+		if (PathString is "." or "")
+		{
+			Console.Write("Enter the path to scan: ");
+			string? input = Console.ReadLine()?.Trim();
+			if (string.IsNullOrEmpty(input))
+			{
+				Console.WriteLine("No path provided. Aborting.");
+				return false;
+			}
+
+			PathString = input;
+		}
+
+		return base.ValidateArgs();
+	}
+
 	internal override void Run(Scan options)
 	{
 		Console.WriteLine($"Scanning: {options.Path}");
