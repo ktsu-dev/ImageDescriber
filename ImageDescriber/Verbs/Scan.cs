@@ -69,11 +69,12 @@ internal sealed class Scan : BaseVerb<Scan>
 		Dictionary<AbsoluteFilePath, string> fileHashes = ImageHasher.HashFiles(imageFiles);
 		Console.WriteLine();
 
-		// Step 4: Filter out already-described hashes, recording new paths for known images
+		// Step 4: Filter out already-described hashes and deduplicate within this scan
 		Dictionary<string, ImageDescription> descriptions = Program.Settings.Descriptions;
-		List<KeyValuePair<AbsoluteFilePath, string>> newFiles = [];
+		Dictionary<string, List<AbsoluteFilePath>> newHashPaths = [];
 		int skippedCount = 0;
 		int newPathCount = 0;
+		int duplicateCount = 0;
 
 		foreach (KeyValuePair<AbsoluteFilePath, string> kvp in fileHashes)
 		{
@@ -86,9 +87,14 @@ internal sealed class Scan : BaseVerb<Scan>
 					newPathCount++;
 				}
 			}
+			else if (newHashPaths.TryGetValue(kvp.Value, out List<AbsoluteFilePath>? paths))
+			{
+				paths.Add(kvp.Key);
+				duplicateCount++;
+			}
 			else
 			{
-				newFiles.Add(kvp);
+				newHashPaths[kvp.Value] = [kvp.Key];
 			}
 		}
 
@@ -98,7 +104,12 @@ internal sealed class Scan : BaseVerb<Scan>
 			Console.WriteLine($"Discovered {newPathCount} new path(s) for existing images.");
 		}
 
-		Console.WriteLine($"New images to describe: {newFiles.Count}");
+		Console.WriteLine($"Unique new images to describe: {newHashPaths.Count}");
+		if (duplicateCount > 0)
+		{
+			Console.WriteLine($"Found {duplicateCount} duplicate(s) that will share descriptions.");
+		}
+
 		if (skippedCount > 0)
 		{
 			Console.WriteLine($"Skipping {skippedCount} already-described image(s).");
@@ -110,13 +121,14 @@ internal sealed class Scan : BaseVerb<Scan>
 		string descriptionPrompt = Program.Settings.DescriptionPrompt;
 		string fileNamePrompt = Program.Settings.SuggestedFileNamePrompt;
 		int current = 0;
-		int total = newFiles.Count;
+		int total = newHashPaths.Count;
 
-		foreach (KeyValuePair<AbsoluteFilePath, string> kvp in newFiles)
+		foreach (KeyValuePair<string, List<AbsoluteFilePath>> kvp in newHashPaths)
 		{
-			(AbsoluteFilePath filePath, string hash) = (kvp.Key, kvp.Value);
+			(string hash, List<AbsoluteFilePath> paths) = (kvp.Key, kvp.Value);
+			AbsoluteFilePath filePath = paths[0];
 			current++;
-			Console.WriteLine($"[{current}/{total}] Describing {filePath.FileName}...");
+			Console.WriteLine($"[{current}/{total}] Describing {filePath.FileName} ({paths.Count} copy/copies)...");
 
 			try
 			{
@@ -129,7 +141,7 @@ internal sealed class Scan : BaseVerb<Scan>
 				ImageDescription entry = new()
 				{
 					Hash = hash,
-					KnownPaths = [filePath],
+					KnownPaths = [.. paths],
 					Description = description,
 					SuggestedFileName = suggestedFileName,
 					Model = options.Model,
