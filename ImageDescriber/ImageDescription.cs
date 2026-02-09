@@ -4,14 +4,15 @@
 
 namespace ktsu.ImageDescriber;
 
+using System.Collections.Generic;
+
 using ktsu.Semantics.Paths;
 using ktsu.Semantics.Strings;
 
 internal sealed class ImageDescription
 {
 	public string Hash { get; set; } = string.Empty;
-	public AbsoluteFilePath FilePath { get; set; } = string.Empty.As<AbsoluteFilePath>();
-	public FileName FileName { get; set; } = string.Empty.As<FileName>();
+	public List<AbsoluteFilePath> KnownPaths { get; set; } = [];
 	public string Description { get; set; } = string.Empty;
 	public FileName SuggestedFileName { get; set; } = string.Empty.As<FileName>();
 	public OllamaModelName Model { get; set; } = string.Empty.As<OllamaModelName>();

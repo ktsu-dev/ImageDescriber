@@ -51,21 +51,33 @@ internal sealed class Scan : BaseVerb<Scan>
 		Dictionary<AbsoluteFilePath, string> fileHashes = ImageHasher.HashFiles(imageFiles);
 		Console.WriteLine();
 
-		// Step 4: Filter out already-described hashes
+		// Step 4: Filter out already-described hashes, recording new paths for known images
 		Dictionary<string, ImageDescription> descriptions = Program.Settings.Descriptions;
 		List<KeyValuePair<AbsoluteFilePath, string>> newFiles = [];
 		int skippedCount = 0;
+		int newPathCount = 0;
 
 		foreach (KeyValuePair<AbsoluteFilePath, string> kvp in fileHashes)
 		{
-			if (descriptions.ContainsKey(kvp.Value))
+			if (descriptions.TryGetValue(kvp.Value, out ImageDescription? existing))
 			{
 				skippedCount++;
+				if (!existing.KnownPaths.Contains(kvp.Key))
+				{
+					existing.KnownPaths.Add(kvp.Key);
+					newPathCount++;
+				}
 			}
 			else
 			{
 				newFiles.Add(kvp);
 			}
+		}
+
+		if (newPathCount > 0)
+		{
+			Program.Settings.Save();
+			Console.WriteLine($"Discovered {newPathCount} new path(s) for existing images.");
 		}
 
 		Console.WriteLine($"New images to describe: {newFiles.Count}");
@@ -86,8 +98,7 @@ internal sealed class Scan : BaseVerb<Scan>
 		{
 			(AbsoluteFilePath filePath, string hash) = (kvp.Key, kvp.Value);
 			current++;
-			FileName fileName = filePath.FileName;
-			Console.WriteLine($"[{current}/{total}] Describing {fileName}...");
+			Console.WriteLine($"[{current}/{total}] Describing {filePath.FileName}...");
 
 			try
 			{
@@ -100,8 +111,7 @@ internal sealed class Scan : BaseVerb<Scan>
 				ImageDescription entry = new()
 				{
 					Hash = hash,
-					FilePath = filePath,
-					FileName = fileName,
+					KnownPaths = [filePath],
 					Description = description,
 					SuggestedFileName = suggestedFileName,
 					Model = options.Model,
@@ -117,7 +127,7 @@ internal sealed class Scan : BaseVerb<Scan>
 			}
 			catch (HttpRequestException ex)
 			{
-				Console.WriteLine($"  Error describing {fileName}: {ex.Message}");
+				Console.WriteLine($"  Error describing {filePath.FileName}: {ex.Message}");
 			}
 
 			Console.WriteLine();

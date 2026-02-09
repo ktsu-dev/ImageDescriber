@@ -50,6 +50,17 @@ internal sealed class Stats : BaseVerb<Stats>
 
 		Console.WriteLine();
 
+		// Path statistics
+		int totalPaths = descriptions.Values.Sum(d => d.KnownPaths.Count);
+		int duplicateImages = descriptions.Values.Count(d => d.KnownPaths.Count > 1);
+		Console.WriteLine($"Total known paths: {totalPaths}");
+		if (duplicateImages > 0)
+		{
+			Console.WriteLine($"Images found at multiple paths: {duplicateImages}");
+		}
+
+		Console.WriteLine();
+
 		// Average description length
 		double avgLength = descriptions.Values.Average(d => d.Description.Length);
 		Console.WriteLine($"Average description length: {avgLength:F0} characters");
