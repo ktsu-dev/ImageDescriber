@@ -16,6 +16,7 @@ internal sealed class Configure : BaseVerb<Configure>
 		Console.WriteLine("Current Settings:");
 		Console.WriteLine($"  Endpoint:        {Program.Settings.OllamaEndpoint}");
 		Console.WriteLine($"  Model:           {Program.Settings.OllamaModel}");
+		Console.WriteLine($"  Concurrency:     {Program.Settings.MaxConcurrentRequests}");
 		Console.WriteLine($"  Prompt:          {Program.Settings.DescriptionPrompt[..Math.Min(60, Program.Settings.DescriptionPrompt.Length)]}...");
 		Console.WriteLine($"  Filename Prompt: {Program.Settings.SuggestedFileNamePrompt[..Math.Min(60, Program.Settings.SuggestedFileNamePrompt.Length)]}...");
 		Console.WriteLine();
@@ -32,6 +33,13 @@ internal sealed class Configure : BaseVerb<Configure>
 		if (!string.IsNullOrWhiteSpace(modelInput))
 		{
 			Program.Settings.OllamaModel = modelInput.Trim().As<OllamaModelName>();
+		}
+
+		Console.Write($"Max Concurrent Requests [{Program.Settings.MaxConcurrentRequests}]: ");
+		string? concurrencyInput = Console.ReadLine();
+		if (!string.IsNullOrWhiteSpace(concurrencyInput) && int.TryParse(concurrencyInput.Trim(), out int concurrency) && concurrency >= 1)
+		{
+			Program.Settings.MaxConcurrentRequests = concurrency;
 		}
 
 		Console.Write($"Description Prompt [{Program.Settings.DescriptionPrompt[..Math.Min(60, Program.Settings.DescriptionPrompt.Length)]}...]: ");
@@ -54,6 +62,7 @@ internal sealed class Configure : BaseVerb<Configure>
 		Console.WriteLine("Settings saved.");
 		Console.WriteLine($"  Endpoint:        {Program.Settings.OllamaEndpoint}");
 		Console.WriteLine($"  Model:           {Program.Settings.OllamaModel}");
+		Console.WriteLine($"  Concurrency:     {Program.Settings.MaxConcurrentRequests}");
 		Console.WriteLine($"  Prompt:          {Program.Settings.DescriptionPrompt[..Math.Min(60, Program.Settings.DescriptionPrompt.Length)]}...");
 		Console.WriteLine($"  Filename Prompt: {Program.Settings.SuggestedFileNamePrompt[..Math.Min(60, Program.Settings.SuggestedFileNamePrompt.Length)]}...");
 	}

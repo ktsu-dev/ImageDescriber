@@ -6,6 +6,8 @@ namespace ktsu.ImageDescriber.Verbs;
 
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 
 using CommandLine;
 
@@ -117,18 +119,30 @@ internal sealed class Scan : BaseVerb<Scan>
 
 		Console.WriteLine();
 
-		// Step 5: Describe each new image sequentially (crash-safe with save after each)
+		// Step 5: Describe new images with configurable concurrency
 		string descriptionPrompt = Program.Settings.DescriptionPrompt;
 		string fileNamePrompt = Program.Settings.SuggestedFileNamePrompt;
+		int maxConcurrency = Math.Max(1, Program.Settings.MaxConcurrentRequests);
 		int current = 0;
 		int total = newHashPaths.Count;
+		Lock consoleLock = new();
+		Lock saveLock = new();
 
-		foreach (KeyValuePair<string, List<AbsoluteFilePath>> kvp in newHashPaths)
+		Console.WriteLine($"Processing with {maxConcurrency} concurrent request(s)...");
+		Console.WriteLine();
+
+		ParallelOptions parallelOptions = new() { MaxDegreeOfParallelism = maxConcurrency };
+
+		Parallel.ForEach(newHashPaths, parallelOptions, kvp =>
 		{
 			(string hash, List<AbsoluteFilePath> paths) = (kvp.Key, kvp.Value);
 			AbsoluteFilePath filePath = paths[0];
-			current++;
-			Console.WriteLine($"[{current}/{total}] Describing {filePath.FileName} ({paths.Count} copy/copies)...");
+			int index = Interlocked.Increment(ref current);
+
+			lock (consoleLock)
+			{
+				Console.WriteLine($"[{index}/{total}] Describing {filePath.FileName} ({paths.Count} copy/copies)...");
+			}
 
 			try
 			{
@@ -149,19 +163,26 @@ internal sealed class Scan : BaseVerb<Scan>
 					FileSizeBytes = new FileInfo(filePath.WeakString).Length,
 				};
 
-				Program.Settings.Descriptions[hash] = entry;
-				Program.Settings.Save();
+				lock (saveLock)
+				{
+					Program.Settings.Descriptions[hash] = entry;
+					Program.Settings.Save();
+				}
 
-				Console.WriteLine($"  Suggested: {suggestedFileName}");
-				Console.WriteLine($"  Done: {description[..Math.Min(80, description.Length)]}...");
+				lock (consoleLock)
+				{
+					Console.WriteLine($"  [{index}/{total}] Suggested: {suggestedFileName}");
+					Console.WriteLine($"  [{index}/{total}] Done: {description[..Math.Min(80, description.Length)]}...");
+				}
 			}
 			catch (HttpRequestException ex)
 			{
-				Console.WriteLine($"  Error describing {filePath.FileName}: {ex.Message}");
+				lock (consoleLock)
+				{
+					Console.WriteLine($"  [{index}/{total}] Error describing {filePath.FileName}: {ex.Message}");
+				}
 			}
-
-			Console.WriteLine();
-		}
+		});
 
 		Console.WriteLine("Scan complete.");
 		Console.WriteLine($"Total descriptions in database: {Program.Settings.Descriptions.Count}");
