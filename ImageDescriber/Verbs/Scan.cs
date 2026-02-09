@@ -165,6 +165,8 @@ internal sealed class Scan : BaseVerb<Scan>
 
 		Console.WriteLine("Scan complete.");
 		Console.WriteLine($"Total descriptions in database: {Program.Settings.Descriptions.Count}");
+
+		PathString = ".";
 	}
 
 	private static FileName SanitizeFileName(string rawSuggestion, FileExtension extension)
