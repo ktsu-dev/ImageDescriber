@@ -50,6 +50,23 @@ internal static class OllamaClient
 			Stream = false,
 		};
 
+		return await SendRequestAsync(endpoint, request).ConfigureAwait(false);
+	}
+
+	internal static async Task<string> GenerateAsync(OllamaEndpoint endpoint, OllamaModelName model, string prompt)
+	{
+		OllamaRequest request = new()
+		{
+			Model = model,
+			Prompt = prompt,
+			Stream = false,
+		};
+
+		return await SendRequestAsync(endpoint, request).ConfigureAwait(false);
+	}
+
+	private static async Task<string> SendRequestAsync(OllamaEndpoint endpoint, OllamaRequest request)
+	{
 		string jsonContent = JsonSerializer.Serialize(request, OllamaJsonContext.Default.OllamaRequest);
 		using StringContent content = new(jsonContent, Encoding.UTF8, "application/json");
 

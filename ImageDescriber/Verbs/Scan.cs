@@ -10,6 +10,7 @@ using System.IO;
 using CommandLine;
 
 using ktsu.Semantics.Paths;
+using ktsu.Semantics.Strings;
 
 [Verb("Scan", HelpText = "Scan a directory for images, describe them using Ollama, and store results.")]
 internal sealed class Scan : BaseVerb<Scan>
@@ -76,7 +77,8 @@ internal sealed class Scan : BaseVerb<Scan>
 		Console.WriteLine();
 
 		// Step 5: Describe each new image sequentially (crash-safe with save after each)
-		string prompt = Program.Settings.DescriptionPrompt;
+		string descriptionPrompt = Program.Settings.DescriptionPrompt;
+		string fileNamePrompt = Program.Settings.SuggestedFileNamePrompt;
 		int current = 0;
 		int total = newFiles.Count;
 
@@ -89,7 +91,11 @@ internal sealed class Scan : BaseVerb<Scan>
 
 			try
 			{
-				string description = OllamaClient.DescribeImageAsync(options.Endpoint, options.Model, prompt, filePath).GetAwaiter().GetResult();
+				string description = OllamaClient.DescribeImageAsync(options.Endpoint, options.Model, descriptionPrompt, filePath).GetAwaiter().GetResult();
+
+				string combinedFileNamePrompt = $"Image description: {description}\n\n{fileNamePrompt}";
+				string rawSuggestion = OllamaClient.GenerateAsync(options.Endpoint, options.Model, combinedFileNamePrompt).GetAwaiter().GetResult();
+				FileName suggestedFileName = SanitizeFileName(rawSuggestion, filePath.FileExtension);
 
 				ImageDescription entry = new()
 				{
@@ -97,6 +103,7 @@ internal sealed class Scan : BaseVerb<Scan>
 					FilePath = filePath,
 					FileName = fileName,
 					Description = description,
+					SuggestedFileName = suggestedFileName,
 					Model = options.Model,
 					DescribedAt = DateTime.UtcNow,
 					FileSizeBytes = new FileInfo(filePath.WeakString).Length,
@@ -105,6 +112,7 @@ internal sealed class Scan : BaseVerb<Scan>
 				Program.Settings.Descriptions[hash] = entry;
 				Program.Settings.Save();
 
+				Console.WriteLine($"  Suggested: {suggestedFileName}");
 				Console.WriteLine($"  Done: {description[..Math.Min(80, description.Length)]}...");
 			}
 			catch (HttpRequestException ex)
@@ -117,5 +125,45 @@ internal sealed class Scan : BaseVerb<Scan>
 
 		Console.WriteLine("Scan complete.");
 		Console.WriteLine($"Total descriptions in database: {Program.Settings.Descriptions.Count}");
+	}
+
+	private static FileName SanitizeFileName(string rawSuggestion, FileExtension extension)
+	{
+		string name = rawSuggestion.Trim().Trim('"', '\'', '`');
+
+		// Take only the first line if the model returned multiple lines
+		int newlineIndex = name.IndexOf('\n', StringComparison.Ordinal);
+		if (newlineIndex >= 0)
+		{
+			name = name[..newlineIndex].Trim();
+		}
+
+		// Strip any extension the model may have included
+		string existingExt = System.IO.Path.GetExtension(name);
+		if (!string.IsNullOrEmpty(existingExt))
+		{
+			name = System.IO.Path.GetFileNameWithoutExtension(name);
+		}
+
+		// Remove invalid filename characters
+		foreach (char c in System.IO.Path.GetInvalidFileNameChars())
+		{
+			name = name.Replace(c, '-');
+		}
+
+		// Collapse multiple hyphens and trim
+		while (name.Contains("--", StringComparison.Ordinal))
+		{
+			name = name.Replace("--", "-", StringComparison.Ordinal);
+		}
+
+		name = name.Trim('-', ' ');
+
+		if (string.IsNullOrEmpty(name))
+		{
+			name = "unnamed";
+		}
+
+		return $"{name}{extension}".As<FileName>();
 	}
 }

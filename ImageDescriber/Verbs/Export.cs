@@ -65,13 +65,13 @@ internal sealed class Export : BaseVerb<Export>
 	private static void ExportCsv(AbsoluteFilePath outputPath, Dictionary<string, ImageDescription> descriptions)
 	{
 		StringBuilder sb = new();
-		sb.AppendLine("Hash,FileName,FilePath,Model,DescribedAt,FileSizeBytes,Description");
+		sb.AppendLine("Hash,FileName,SuggestedFileName,FilePath,Model,DescribedAt,FileSizeBytes,Description");
 
 		foreach (ImageDescription desc in descriptions.Values)
 		{
 			string escapedDescription = $"\"{desc.Description.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
 			string escapedPath = $"\"{desc.FilePath.WeakString.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
-			sb.AppendLine($"{desc.Hash},{desc.FileName},{escapedPath},{desc.Model},{desc.DescribedAt:O},{desc.FileSizeBytes},{escapedDescription}");
+			sb.AppendLine($"{desc.Hash},{desc.FileName},{desc.SuggestedFileName},{escapedPath},{desc.Model},{desc.DescribedAt:O},{desc.FileSizeBytes},{escapedDescription}");
 		}
 
 		File.WriteAllText(outputPath.WeakString, sb.ToString(), Encoding.UTF8);

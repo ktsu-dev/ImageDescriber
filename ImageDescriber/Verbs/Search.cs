@@ -37,6 +37,7 @@ internal sealed class Search : BaseVerb<Search>
 		{
 			ImageDescription desc = kvp.Value;
 			Console.WriteLine($"  File: {desc.FileName}");
+			Console.WriteLine($"  Suggested: {desc.SuggestedFileName}");
 			Console.WriteLine($"  Path: {desc.FilePath}");
 			Console.WriteLine($"  Hash: {desc.Hash[..12]}...");
 			Console.WriteLine($"  Date: {desc.DescribedAt:yyyy-MM-dd HH:mm:ss} UTC");

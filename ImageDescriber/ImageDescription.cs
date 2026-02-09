@@ -13,6 +13,7 @@ internal sealed class ImageDescription
 	public AbsoluteFilePath FilePath { get; set; } = string.Empty.As<AbsoluteFilePath>();
 	public FileName FileName { get; set; } = string.Empty.As<FileName>();
 	public string Description { get; set; } = string.Empty;
+	public FileName SuggestedFileName { get; set; } = string.Empty.As<FileName>();
 	public OllamaModelName Model { get; set; } = string.Empty.As<OllamaModelName>();
 	public DateTime DescribedAt { get; set; } = DateTime.UtcNow;
 	public long FileSizeBytes { get; set; }
