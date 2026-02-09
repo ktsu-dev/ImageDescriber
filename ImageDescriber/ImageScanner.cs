@@ -35,10 +35,15 @@ internal static class ImageScanner
 		List<AbsoluteFilePath> imageFiles = [];
 		foreach (string file in Directory.EnumerateFiles(path.WeakString, "*", SearchOption.AllDirectories))
 		{
-			AbsoluteFilePath filePath = file.As<AbsoluteFilePath>();
-			if (ImageExtensions.Contains(filePath.FileExtension))
+			string ext = Path.GetExtension(file);
+			if (string.IsNullOrEmpty(ext))
 			{
-				imageFiles.Add(filePath);
+				continue;
+			}
+
+			if (ImageExtensions.Contains(ext.As<FileExtension>()))
+			{
+				imageFiles.Add(file.As<AbsoluteFilePath>());
 			}
 		}
 
