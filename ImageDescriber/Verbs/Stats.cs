@@ -30,12 +30,12 @@ internal sealed class Stats : BaseVerb<Stats>
 		Console.WriteLine();
 
 		// Models used
-		IGrouping<string, ImageDescription>[] modelGroups = [.. descriptions.Values
+		IGrouping<OllamaModelName, ImageDescription>[] modelGroups = [.. descriptions.Values
 			.GroupBy(d => d.Model)
 			.OrderByDescending(g => g.Count())];
 
 		Console.WriteLine("Models used:");
-		foreach (IGrouping<string, ImageDescription> group in modelGroups)
+		foreach (IGrouping<OllamaModelName, ImageDescription> group in modelGroups)
 		{
 			Console.WriteLine($"  {group.Key}: {group.Count()} description(s)");
 		}

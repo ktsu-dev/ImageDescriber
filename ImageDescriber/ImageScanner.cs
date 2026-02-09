@@ -12,17 +12,17 @@ using ktsu.Semantics.Strings;
 
 internal static class ImageScanner
 {
-	private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
-	{
-		".jpg",
-		".jpeg",
-		".png",
-		".gif",
-		".bmp",
-		".webp",
-		".tiff",
-		".tif",
-	};
+	private static readonly HashSet<FileExtension> ImageExtensions =
+	[
+		".jpg".As<FileExtension>(),
+		".jpeg".As<FileExtension>(),
+		".png".As<FileExtension>(),
+		".gif".As<FileExtension>(),
+		".bmp".As<FileExtension>(),
+		".webp".As<FileExtension>(),
+		".tiff".As<FileExtension>(),
+		".tif".As<FileExtension>(),
+	];
 
 	internal static IReadOnlyList<AbsoluteFilePath> ScanForImages(AbsoluteDirectoryPath path)
 	{
@@ -35,10 +35,10 @@ internal static class ImageScanner
 		List<AbsoluteFilePath> imageFiles = [];
 		foreach (string file in Directory.EnumerateFiles(path.WeakString, "*", SearchOption.AllDirectories))
 		{
-			string extension = Path.GetExtension(file);
-			if (ImageExtensions.Contains(extension))
+			AbsoluteFilePath filePath = file.As<AbsoluteFilePath>();
+			if (ImageExtensions.Contains(filePath.FileExtension))
 			{
-				imageFiles.Add(file.As<AbsoluteFilePath>());
+				imageFiles.Add(filePath);
 			}
 		}
 

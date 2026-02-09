@@ -6,6 +6,8 @@ namespace ktsu.ImageDescriber.Verbs;
 
 using CommandLine;
 
+using ktsu.Semantics.Strings;
+
 [Verb("Configure", HelpText = "Configure the Ollama endpoint and model settings.")]
 internal sealed class Configure : BaseVerb<Configure>
 {
@@ -21,14 +23,14 @@ internal sealed class Configure : BaseVerb<Configure>
 		string? endpointInput = Console.ReadLine();
 		if (!string.IsNullOrWhiteSpace(endpointInput))
 		{
-			Program.Settings.OllamaEndpoint = endpointInput.Trim();
+			Program.Settings.OllamaEndpoint = endpointInput.Trim().As<OllamaEndpoint>();
 		}
 
 		Console.Write($"Ollama Model [{Program.Settings.OllamaModel}]: ");
 		string? modelInput = Console.ReadLine();
 		if (!string.IsNullOrWhiteSpace(modelInput))
 		{
-			Program.Settings.OllamaModel = modelInput.Trim();
+			Program.Settings.OllamaModel = modelInput.Trim().As<OllamaModelName>();
 		}
 
 		Console.Write($"Description Prompt [{Program.Settings.DescriptionPrompt[..Math.Min(60, Program.Settings.DescriptionPrompt.Length)]}...]: ");

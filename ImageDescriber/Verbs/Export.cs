@@ -70,7 +70,7 @@ internal sealed class Export : BaseVerb<Export>
 		foreach (ImageDescription desc in descriptions.Values)
 		{
 			string escapedDescription = $"\"{desc.Description.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
-			string escapedPath = $"\"{desc.FilePath.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
+			string escapedPath = $"\"{desc.FilePath.WeakString.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
 			sb.AppendLine($"{desc.Hash},{desc.FileName},{escapedPath},{desc.Model},{desc.DescribedAt:O},{desc.FileSizeBytes},{escapedDescription}");
 		}
 

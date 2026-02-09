@@ -94,8 +94,8 @@ internal sealed class Scan : BaseVerb<Scan>
 				ImageDescription entry = new()
 				{
 					Hash = hash,
-					FilePath = filePath.WeakString,
-					FileName = fileName.WeakString,
+					FilePath = filePath,
+					FileName = fileName,
 					Description = description,
 					Model = options.Model,
 					DescribedAt = DateTime.UtcNow,

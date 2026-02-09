@@ -20,11 +20,11 @@ internal static class OllamaClient
 		Timeout = TimeSpan.FromMinutes(5),
 	};
 
-	internal static async Task<bool> IsAvailableAsync(string endpoint)
+	internal static async Task<bool> IsAvailableAsync(OllamaEndpoint endpoint)
 	{
 		try
 		{
-			using HttpResponseMessage response = await HttpClient.GetAsync(new Uri(endpoint)).ConfigureAwait(false);
+			using HttpResponseMessage response = await HttpClient.GetAsync(new Uri(endpoint.WeakString)).ConfigureAwait(false);
 			return response.IsSuccessStatusCode;
 		}
 		catch (HttpRequestException)
@@ -37,7 +37,7 @@ internal static class OllamaClient
 		}
 	}
 
-	internal static async Task<string> DescribeImageAsync(string endpoint, string model, string prompt, AbsoluteFilePath imagePath)
+	internal static async Task<string> DescribeImageAsync(OllamaEndpoint endpoint, OllamaModelName model, string prompt, AbsoluteFilePath imagePath)
 	{
 		byte[] imageBytes = await File.ReadAllBytesAsync(imagePath.WeakString).ConfigureAwait(false);
 		string base64Image = Convert.ToBase64String(imageBytes);
