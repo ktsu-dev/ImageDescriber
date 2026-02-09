@@ -146,7 +146,9 @@ internal sealed class Scan : BaseVerb<Scan>
 
 			try
 			{
-				string description = OllamaClient.DescribeImageAsync(options.Endpoint, options.Model, descriptionPrompt, filePath).GetAwaiter().GetResult();
+				string pathContext = string.Join("\n", paths.Select(p => p.WeakString));
+				string fullPrompt = $"Known file paths for this image:\n{pathContext}\n\n{descriptionPrompt}";
+				string description = OllamaClient.DescribeImageAsync(options.Endpoint, options.Model, fullPrompt, filePath).GetAwaiter().GetResult();
 
 				string combinedFileNamePrompt = $"Image description: {description}\n\n{fileNamePrompt}";
 				string rawSuggestion = OllamaClient.GenerateAsync(options.Endpoint, options.Model, combinedFileNamePrompt).GetAwaiter().GetResult();
