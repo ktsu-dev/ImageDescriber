@@ -9,6 +9,8 @@ using System.IO;
 
 using CommandLine;
 
+using ktsu.Semantics.Paths;
+
 [Verb("Scan", HelpText = "Scan a directory for images, describe them using Ollama, and store results.")]
 internal sealed class Scan : BaseVerb<Scan>
 {
@@ -34,7 +36,7 @@ internal sealed class Scan : BaseVerb<Scan>
 
 		// Step 2: Discover image files
 		Console.WriteLine("Discovering image files...");
-		IReadOnlyList<string> imageFiles = ImageScanner.ScanForImages(options.Path);
+		IReadOnlyList<AbsoluteFilePath> imageFiles = ImageScanner.ScanForImages(options.Path);
 		Console.WriteLine($"Found {imageFiles.Count} image(s).");
 		Console.WriteLine();
 
@@ -45,15 +47,15 @@ internal sealed class Scan : BaseVerb<Scan>
 
 		// Step 3: Hash all files in parallel
 		Console.WriteLine("Hashing image files...");
-		Dictionary<string, string> fileHashes = ImageHasher.HashFiles(imageFiles);
+		Dictionary<AbsoluteFilePath, string> fileHashes = ImageHasher.HashFiles(imageFiles);
 		Console.WriteLine();
 
 		// Step 4: Filter out already-described hashes
 		Dictionary<string, ImageDescription> descriptions = Program.Settings.Descriptions;
-		List<KeyValuePair<string, string>> newFiles = [];
+		List<KeyValuePair<AbsoluteFilePath, string>> newFiles = [];
 		int skippedCount = 0;
 
-		foreach (KeyValuePair<string, string> kvp in fileHashes)
+		foreach (KeyValuePair<AbsoluteFilePath, string> kvp in fileHashes)
 		{
 			if (descriptions.ContainsKey(kvp.Value))
 			{
@@ -78,11 +80,11 @@ internal sealed class Scan : BaseVerb<Scan>
 		int current = 0;
 		int total = newFiles.Count;
 
-		foreach (KeyValuePair<string, string> kvp in newFiles)
+		foreach (KeyValuePair<AbsoluteFilePath, string> kvp in newFiles)
 		{
-			(string filePath, string hash) = (kvp.Key, kvp.Value);
+			(AbsoluteFilePath filePath, string hash) = (kvp.Key, kvp.Value);
 			current++;
-			string fileName = System.IO.Path.GetFileName(filePath);
+			FileName fileName = filePath.FileName;
 			Console.WriteLine($"[{current}/{total}] Describing {fileName}...");
 
 			try
@@ -92,12 +94,12 @@ internal sealed class Scan : BaseVerb<Scan>
 				ImageDescription entry = new()
 				{
 					Hash = hash,
-					FilePath = filePath,
-					FileName = fileName,
+					FilePath = filePath.WeakString,
+					FileName = fileName.WeakString,
 					Description = description,
 					Model = options.Model,
 					DescribedAt = DateTime.UtcNow,
-					FileSizeBytes = new FileInfo(filePath).Length,
+					FileSizeBytes = new FileInfo(filePath.WeakString).Length,
 				};
 
 				Program.Settings.Descriptions[hash] = entry;

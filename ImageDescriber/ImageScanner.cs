@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.IO;
 
 using ktsu.Semantics.Paths;
+using ktsu.Semantics.Strings;
 
 internal static class ImageScanner
 {
@@ -23,22 +24,21 @@ internal static class ImageScanner
 		".tif",
 	};
 
-	internal static IReadOnlyList<string> ScanForImages(AbsoluteDirectoryPath path)
+	internal static IReadOnlyList<AbsoluteFilePath> ScanForImages(AbsoluteDirectoryPath path)
 	{
-		string directoryPath = path.ToString();
-		if (!Directory.Exists(directoryPath))
+		if (!path.Exists)
 		{
-			Console.WriteLine($"Directory not found: {directoryPath}");
+			Console.WriteLine($"Directory not found: {path}");
 			return [];
 		}
 
-		List<string> imageFiles = [];
-		foreach (string file in Directory.EnumerateFiles(directoryPath, "*", SearchOption.AllDirectories))
+		List<AbsoluteFilePath> imageFiles = [];
+		foreach (string file in Directory.EnumerateFiles(path.WeakString, "*", SearchOption.AllDirectories))
 		{
 			string extension = Path.GetExtension(file);
 			if (ImageExtensions.Contains(extension))
 			{
-				imageFiles.Add(file);
+				imageFiles.Add(file.As<AbsoluteFilePath>());
 			}
 		}
 

@@ -12,6 +12,9 @@ using System.Text.Json.Serialization;
 
 using CommandLine;
 
+using ktsu.Semantics.Paths;
+using ktsu.Semantics.Strings;
+
 [Verb("Export", HelpText = "Export the description database to JSON or CSV.")]
 internal sealed class Export : BaseVerb<Export>
 {
@@ -34,32 +37,32 @@ internal sealed class Export : BaseVerb<Export>
 			return;
 		}
 
-		string extension = System.IO.Path.GetExtension(options.OutputPath).ToUpperInvariant();
+		AbsoluteFilePath outputFile = System.IO.Path.GetFullPath(options.OutputPath).As<AbsoluteFilePath>();
 
-		switch (extension)
+		switch (outputFile.FileExtension.WeakString.ToUpperInvariant())
 		{
 			case ".JSON":
-				ExportJson(options.OutputPath, descriptions);
+				ExportJson(outputFile, descriptions);
 				break;
 			case ".CSV":
-				ExportCsv(options.OutputPath, descriptions);
+				ExportCsv(outputFile, descriptions);
 				break;
 			default:
 				Console.WriteLine("Error: Output file must have .json or .csv extension.");
 				return;
 		}
 
-		Console.WriteLine($"Exported {descriptions.Count} description(s) to {options.OutputPath}");
+		Console.WriteLine($"Exported {descriptions.Count} description(s) to {outputFile}");
 	}
 
-	private static void ExportJson(string outputPath, Dictionary<string, ImageDescription> descriptions)
+	private static void ExportJson(AbsoluteFilePath outputPath, Dictionary<string, ImageDescription> descriptions)
 	{
 		ImageDescription[] entries = [.. descriptions.Values];
 		string json = JsonSerializer.Serialize(entries, JsonOptions);
-		File.WriteAllText(outputPath, json, Encoding.UTF8);
+		File.WriteAllText(outputPath.WeakString, json, Encoding.UTF8);
 	}
 
-	private static void ExportCsv(string outputPath, Dictionary<string, ImageDescription> descriptions)
+	private static void ExportCsv(AbsoluteFilePath outputPath, Dictionary<string, ImageDescription> descriptions)
 	{
 		StringBuilder sb = new();
 		sb.AppendLine("Hash,FileName,FilePath,Model,DescribedAt,FileSizeBytes,Description");
@@ -71,6 +74,6 @@ internal sealed class Export : BaseVerb<Export>
 			sb.AppendLine($"{desc.Hash},{desc.FileName},{escapedPath},{desc.Model},{desc.DescribedAt:O},{desc.FileSizeBytes},{escapedDescription}");
 		}
 
-		File.WriteAllText(outputPath, sb.ToString(), Encoding.UTF8);
+		File.WriteAllText(outputPath.WeakString, sb.ToString(), Encoding.UTF8);
 	}
 }

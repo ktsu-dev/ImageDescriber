@@ -11,6 +11,8 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
+using ktsu.Semantics.Paths;
+
 internal static class OllamaClient
 {
 	private static readonly HttpClient HttpClient = new()
@@ -35,9 +37,9 @@ internal static class OllamaClient
 		}
 	}
 
-	internal static async Task<string> DescribeImageAsync(string endpoint, string model, string prompt, string imagePath)
+	internal static async Task<string> DescribeImageAsync(string endpoint, string model, string prompt, AbsoluteFilePath imagePath)
 	{
-		byte[] imageBytes = await File.ReadAllBytesAsync(imagePath).ConfigureAwait(false);
+		byte[] imageBytes = await File.ReadAllBytesAsync(imagePath.WeakString).ConfigureAwait(false);
 		string base64Image = Convert.ToBase64String(imageBytes);
 
 		OllamaRequest request = new()
