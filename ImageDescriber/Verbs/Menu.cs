@@ -6,6 +6,7 @@ namespace ktsu.ImageDescriber.Verbs;
 
 using System.Diagnostics;
 using System.Linq;
+using System.Reflection;
 
 using CommandLine;
 
@@ -46,9 +47,14 @@ internal sealed class Menu : BaseVerb<Menu>
 	{
 		BaseVerb? verb = Activator.CreateInstance(verbType) as BaseVerb;
 		Debug.Assert(verb != null);
+
+		string name = verbType.Name;
+		string? helpText = verbType.GetCustomAttribute<VerbAttribute>()?.HelpText;
+		string text = string.IsNullOrEmpty(helpText) ? name : $"{name} - {helpText}";
+
 		return new LabelMenuItem()
 		{
-			Text = verbType.Name,
+			Text = text,
 			Command = verb,
 			IsEnabled = true,
 		};
