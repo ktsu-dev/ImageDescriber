@@ -17,7 +17,7 @@ internal static class OllamaClient
 {
 	private static readonly HttpClient HttpClient = new()
 	{
-		Timeout = TimeSpan.FromMinutes(5),
+		Timeout = TimeSpan.FromMinutes(10),
 	};
 
 	internal static async Task<bool> IsAvailableAsync(OllamaEndpoint endpoint)
