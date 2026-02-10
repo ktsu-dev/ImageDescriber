@@ -12,12 +12,18 @@ using System.Text.Json;
 
 using CommandLine;
 
+using ktsu.RoundTripStringJsonConverter;
 using ktsu.Semantics.Paths;
 using ktsu.Semantics.Strings;
 
 [Verb("Import", HelpText = "Import descriptions from a JSON or CSV file.")]
 internal sealed class Import : BaseVerb<Import>
 {
+	private static readonly JsonSerializerOptions JsonOptions = new()
+	{
+		Converters = { new RoundTripStringJsonConverterFactory() },
+	};
+
 	[Option('i', "input", Required = false, HelpText = "Input file path (.json or .csv).")]
 	public string InputPath { get; set; } = string.Empty;
 
@@ -116,7 +122,7 @@ internal sealed class Import : BaseVerb<Import>
 	private static List<ImageDescription> ImportJson(AbsoluteFilePath inputPath)
 	{
 		string json = File.ReadAllText(inputPath.WeakString);
-		return JsonSerializer.Deserialize<List<ImageDescription>>(json) ?? [];
+		return JsonSerializer.Deserialize<List<ImageDescription>>(json, JsonOptions) ?? [];
 	}
 
 	private static List<ImageDescription> ImportCsv(AbsoluteFilePath inputPath)

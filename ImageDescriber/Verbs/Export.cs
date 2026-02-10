@@ -13,6 +13,7 @@ using System.Text.Json.Serialization;
 
 using CommandLine;
 
+using ktsu.RoundTripStringJsonConverter;
 using ktsu.Semantics.Paths;
 using ktsu.Semantics.Strings;
 
@@ -23,6 +24,7 @@ internal sealed class Export : BaseVerb<Export>
 	{
 		WriteIndented = true,
 		DefaultIgnoreCondition = JsonIgnoreCondition.Never,
+		Converters = { new RoundTripStringJsonConverterFactory() },
 	};
 
 	[Option('o', "output", Required = true, HelpText = "Output file path (.json or .csv).")]
