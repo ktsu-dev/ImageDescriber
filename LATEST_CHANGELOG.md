@@ -1,6 +1,6 @@
-## v1.0.7-pre.1 (prerelease)
+## v1.0.7 (patch)
 
 Changes since v1.0.6:
 
-- Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Remove legacy build scripts ([@matt-edmondson](https://github.com/matt-edmondson))
 
