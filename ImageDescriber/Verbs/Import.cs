@@ -5,6 +5,7 @@
 namespace ktsu.ImageDescriber.Verbs;
 
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -55,21 +56,39 @@ internal sealed class Import : BaseVerb<Import>
 			return;
 		}
 
-		List<ImageDescription> entries;
+		List<ImageDescription>? entries = LoadEntries(inputFile);
+		if (entries is null)
+		{
+			return;
+		}
 
+		(int newCount, int updatedCount, int skippedCount) = MergeEntries(entries);
+
+		Program.Settings.Save();
+
+		Console.WriteLine($"Import complete.");
+		Console.WriteLine($"  New entries:     {newCount}");
+		Console.WriteLine($"  Updated paths:   {updatedCount}");
+		Console.WriteLine($"  Skipped:         {skippedCount}");
+		Console.WriteLine($"  Total in database: {Program.Settings.Descriptions.Count}");
+	}
+
+	private static List<ImageDescription>? LoadEntries(AbsoluteFilePath inputFile)
+	{
 		switch (inputFile.FileExtension.WeakString.ToUpperInvariant())
 		{
 			case ".JSON":
-				entries = ImportJson(inputFile);
-				break;
+				return ImportJson(inputFile);
 			case ".CSV":
-				entries = ImportCsv(inputFile);
-				break;
+				return ImportCsv(inputFile);
 			default:
 				Console.WriteLine("Error: Input file must have .json or .csv extension.");
-				return;
+				return null;
 		}
+	}
 
+	private static (int NewCount, int UpdatedCount, int SkippedCount) MergeEntries(List<ImageDescription> entries)
+	{
 		int newCount = 0;
 		int updatedCount = 0;
 		int skippedCount = 0;
@@ -84,17 +103,7 @@ internal sealed class Import : BaseVerb<Import>
 
 			if (Program.Settings.Descriptions.TryGetValue(entry.Hash, out ImageDescription? existing))
 			{
-				bool pathsAdded = false;
-				foreach (AbsoluteFilePath path in entry.KnownPaths)
-				{
-					if (!existing.KnownPaths.Contains(path))
-					{
-						existing.KnownPaths.Add(path);
-						pathsAdded = true;
-					}
-				}
-
-				if (pathsAdded)
+				if (MergeKnownPaths(entry, existing))
 				{
 					updatedCount++;
 				}
@@ -110,13 +119,19 @@ internal sealed class Import : BaseVerb<Import>
 			}
 		}
 
-		Program.Settings.Save();
+		return (newCount, updatedCount, skippedCount);
+	}
 
-		Console.WriteLine($"Import complete.");
-		Console.WriteLine($"  New entries:     {newCount}");
-		Console.WriteLine($"  Updated paths:   {updatedCount}");
-		Console.WriteLine($"  Skipped:         {skippedCount}");
-		Console.WriteLine($"  Total in database: {Program.Settings.Descriptions.Count}");
+	internal static bool MergeKnownPaths(ImageDescription source, ImageDescription target)
+	{
+		bool pathsAdded = false;
+		foreach (AbsoluteFilePath path in source.KnownPaths.Where(p => !target.KnownPaths.Contains(p)))
+		{
+			target.KnownPaths.Add(path);
+			pathsAdded = true;
+		}
+
+		return pathsAdded;
 	}
 
 	private static List<ImageDescription> ImportJson(AbsoluteFilePath inputPath)
@@ -161,8 +176,8 @@ internal sealed class Import : BaseVerb<Import>
 					.Split("; ", StringSplitOptions.RemoveEmptyEntries)
 					.Select(p => p.As<AbsoluteFilePath>())];
 				OllamaModelName model = fields[3].As<OllamaModelName>();
-				DateTime describedAt = DateTime.Parse(fields[4], null, System.Globalization.DateTimeStyles.RoundtripKind);
-				long fileSizeBytes = long.Parse(fields[5], System.Globalization.CultureInfo.InvariantCulture);
+				DateTime describedAt = DateTime.Parse(fields[4], CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
+				long fileSizeBytes = long.Parse(fields[5], CultureInfo.InvariantCulture);
 				string description = fields[6];
 
 				entries.Add(new ImageDescription
@@ -193,7 +208,7 @@ internal sealed class Import : BaseVerb<Import>
 		return entries;
 	}
 
-	private static List<string> ParseCsvLine(string line)
+	internal static List<string> ParseCsvLine(string line)
 	{
 		List<string> fields = [];
 		int i = 0;
@@ -202,56 +217,65 @@ internal sealed class Import : BaseVerb<Import>
 		{
 			if (line[i] == '"')
 			{
-				// Quoted field
-				i++;
-				StringBuilder field = new();
-				while (i < line.Length)
-				{
-					if (line[i] == '"')
-					{
-						if (i + 1 < line.Length && line[i + 1] == '"')
-						{
-							field.Append('"');
-							i += 2;
-						}
-						else
-						{
-							i++; // closing quote
-							break;
-						}
-					}
-					else
-					{
-						field.Append(line[i]);
-						i++;
-					}
-				}
-
-				fields.Add(field.ToString());
-
-				// Skip comma after quoted field
-				if (i < line.Length && line[i] == ',')
-				{
-					i++;
-				}
+				fields.Add(ParseQuotedField(line, ref i));
 			}
 			else
 			{
-				// Unquoted field
-				int commaIndex = line.IndexOf(',', i);
-				if (commaIndex < 0)
-				{
-					fields.Add(line[i..]);
-					break;
-				}
-				else
-				{
-					fields.Add(line[i..commaIndex]);
-					i = commaIndex + 1;
-				}
+				fields.Add(ParseUnquotedField(line, ref i));
 			}
 		}
 
 		return fields;
+	}
+
+	private static string ParseQuotedField(string line, ref int i)
+	{
+		i++; // skip opening quote
+		StringBuilder field = new();
+
+		while (i < line.Length)
+		{
+			if (line[i] == '"')
+			{
+				if (i + 1 < line.Length && line[i + 1] == '"')
+				{
+					field.Append('"');
+					i += 2;
+				}
+				else
+				{
+					i++; // closing quote
+					break;
+				}
+			}
+			else
+			{
+				field.Append(line[i]);
+				i++;
+			}
+		}
+
+		// Skip comma after quoted field
+		if (i < line.Length && line[i] == ',')
+		{
+			i++;
+		}
+
+		return field.ToString();
+	}
+
+	private static string ParseUnquotedField(string line, ref int i)
+	{
+		int commaIndex = line.IndexOf(',', i);
+		if (commaIndex < 0)
+		{
+			string result = line[i..];
+			i = line.Length;
+			return result;
+		}
+
+		string field = line[i..commaIndex];
+		i = commaIndex + 1;
+		return field;
 	}
 }

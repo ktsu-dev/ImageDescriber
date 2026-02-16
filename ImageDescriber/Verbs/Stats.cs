@@ -66,7 +66,7 @@ internal sealed class Stats : BaseVerb<Stats>
 		Console.WriteLine($"Average description length: {avgLength:F0} characters");
 	}
 
-	private static string FormatBytes(long bytes) => bytes switch
+	internal static string FormatBytes(long bytes) => bytes switch
 	{
 		< 1024L => $"{bytes} B",
 		< 1024L * 1024 => $"{bytes / 1024.0:F1} KB",

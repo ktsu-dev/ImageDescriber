@@ -27,17 +27,17 @@ internal sealed class Search : BaseVerb<Search>
 
 		Dictionary<string, ImageDescription> descriptions = Program.Settings.Descriptions;
 
-		KeyValuePair<string, ImageDescription>[] matches = [.. descriptions
+		ImageDescription[] matches = [.. descriptions
 			.Where(kvp => kvp.Value.Description.Contains(options.Query, StringComparison.OrdinalIgnoreCase)
 				|| kvp.Value.KnownPaths.Any(p => p.FileName.Contains(options.Query, StringComparison.OrdinalIgnoreCase)))
-			.OrderByDescending(kvp => kvp.Value.DescribedAt)];
+			.OrderByDescending(kvp => kvp.Value.DescribedAt)
+			.Select(kvp => kvp.Value)];
 
 		Console.WriteLine($"Search results for \"{options.Query}\": {matches.Length} match(es)");
 		Console.WriteLine();
 
-		foreach (KeyValuePair<string, ImageDescription> kvp in matches)
+		foreach (ImageDescription desc in matches)
 		{
-			ImageDescription desc = kvp.Value;
 			Console.WriteLine($"  Suggested: {desc.SuggestedFileName}");
 			Console.WriteLine($"  Hash: {desc.Hash[..12]}...");
 			Console.WriteLine($"  Date: {desc.DescribedAt:yyyy-MM-dd HH:mm:ss} UTC");

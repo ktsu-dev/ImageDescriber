@@ -19,6 +19,8 @@ internal sealed class Menu : BaseVerb<Menu>
 {
 	internal override void Run(Menu options)
 	{
+		bool exitRequested = false;
+
 		ScrollMenu scrollMenu = new()
 		{
 			HorizontalAlignment = HorizontalAlignment.Left,
@@ -36,11 +38,23 @@ internal sealed class Menu : BaseVerb<Menu>
 			.Select(CreateMenuItem)];
 
 		scrollMenu.AddItems(menuItems);
+		scrollMenu.AddItem(new LabelMenuItem()
+		{
+			Text = "Exit",
+			Command = new ActionCommand(() => exitRequested = true),
+			IsEnabled = true,
+		});
 
-		while (true)
+		while (!exitRequested)
 		{
 			menuRepeater.Display();
 		}
+	}
+
+	private sealed class ActionCommand(Action action) : ICommand
+	{
+		public bool IsActive => true;
+		public void Execute() => action();
 	}
 
 	private static LabelMenuItem CreateMenuItem(Type verbType)

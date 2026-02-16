@@ -192,7 +192,7 @@ internal sealed class Scan : BaseVerb<Scan>
 		PathString = ".";
 	}
 
-	private static FileName SanitizeFileName(string rawSuggestion, FileExtension extension)
+	internal static FileName SanitizeFileName(string rawSuggestion, FileExtension extension)
 	{
 		string name = rawSuggestion.Trim().Trim('"', '\'', '`');
 
