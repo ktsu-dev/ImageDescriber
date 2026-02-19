@@ -9,7 +9,7 @@
     <PackageVersion Include="ktsu.Extensions" Version="1.5.14" />
     <PackageVersion Include="ktsu.Semantics.Strings" Version="1.0.31" />
     <PackageVersion Include="ktsu.Semantics.Paths" Version="1.0.31" />
-    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.102" />
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.103" />
     <PackageVersion Include="Polyfill" Version="9.9.0" />
   </ItemGroup>
 </Project>
