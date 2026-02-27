@@ -5,11 +5,11 @@
   <ItemGroup>
     <PackageVersion Include="CommandLineParser" Version="2.9.1" />
     <PackageVersion Include="ConsoleTools" Version="1.2.1" />
-    <PackageVersion Include="ktsu.AppDataStorage" Version="1.16.3" />
+    <PackageVersion Include="ktsu.AppDataStorage" Version="1.16.4" />
     <PackageVersion Include="ktsu.Extensions" Version="1.5.14" />
     <PackageVersion Include="ktsu.Semantics.Strings" Version="1.0.33" />
     <PackageVersion Include="ktsu.Semantics.Paths" Version="1.0.33" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.103" />
-    <PackageVersion Include="Polyfill" Version="9.11.0" />
+    <PackageVersion Include="Polyfill" Version="9.12.0" />
   </ItemGroup>
 </Project>
