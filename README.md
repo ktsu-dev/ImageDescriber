@@ -46,6 +46,9 @@ ImageDescriber Search -q "dog"
 # Export / import the database
 ImageDescriber Export -o descriptions.csv      # or .json
 ImageDescriber Import -i backup.json            # or .csv
+
+# Print database statistics
+ImageDescriber Stats
 ```
 
 ### Verbs
@@ -58,6 +61,7 @@ ImageDescriber Import -i backup.json            # or .csv
 | `Configure` | Edit endpoint, model, concurrency, and prompt templates. |
 | `Export` | Dump the database to JSON or CSV. |
 | `Import` | Merge a JSON or CSV export back into the database. |
+| `Stats` | Print database statistics — total descriptions, total file size, models used, date range, duplicate count, and average description length. |
 
 ### Common options
 
