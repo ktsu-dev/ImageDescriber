@@ -1,6 +1,6 @@
-## v1.1.29 (patch)
+## v1.1.30 (patch)
 
-Changes since v1.1.28:
+Changes since v1.1.29:
 
-- Bump Polyfill from 10.4.0 to 10.5.0 ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Add TAGS.md with NuGet package tags ([@matt-edmondson](https://github.com/matt-edmondson))
 
