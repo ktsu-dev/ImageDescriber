@@ -1,0 +1,1 @@
+image describer;ollama;vision model;image captioning;local ai;llm;llama vision;image hashing;image search;cli tool;bulk processing;dotnet;csharp
