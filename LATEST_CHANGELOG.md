@@ -1,6 +1,7 @@
-## v1.1.34 (patch)
+## v1.1.35 (patch)
 
-Changes since v1.1.33:
+Changes since v1.1.34:
 
-- Bump the ktsu group with 1 update ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump Polyfill from 10.5.1 to 10.6.0 ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump the ktsu group with 2 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
 
