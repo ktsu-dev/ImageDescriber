@@ -10,6 +10,6 @@
     <PackageVersion Include="ktsu.Semantics.Strings" Version="1.1.1" />
     <PackageVersion Include="ktsu.Semantics.Paths" Version="1.1.1" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.300" />
-    <PackageVersion Include="Polyfill" Version="10.8.1" />
+    <PackageVersion Include="Polyfill" Version="10.10.0" />
   </ItemGroup>
 </Project>
