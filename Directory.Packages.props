@@ -5,10 +5,10 @@
   <ItemGroup>
     <PackageVersion Include="CommandLineParser" Version="2.9.1" />
     <PackageVersion Include="ConsoleTools" Version="1.2.1" />
-    <PackageVersion Include="ktsu.AppDataStorage" Version="1.16.21" />
-    <PackageVersion Include="ktsu.Extensions" Version="1.5.14" />
-    <PackageVersion Include="ktsu.Semantics.Strings" Version="1.0.35" />
-    <PackageVersion Include="ktsu.Semantics.Paths" Version="1.0.35" />
+    <PackageVersion Include="ktsu.AppDataStorage" Version="1.16.23" />
+    <PackageVersion Include="ktsu.Extensions" Version="1.5.16" />
+    <PackageVersion Include="ktsu.Semantics.Strings" Version="1.1.1" />
+    <PackageVersion Include="ktsu.Semantics.Paths" Version="1.1.1" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.300" />
     <PackageVersion Include="Polyfill" Version="10.8.1" />
   </ItemGroup>
