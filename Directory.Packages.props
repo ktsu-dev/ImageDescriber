@@ -7,8 +7,8 @@
     <PackageVersion Include="ConsoleTools" Version="1.2.1" />
     <PackageVersion Include="ktsu.AppDataStorage" Version="1.16.23" />
     <PackageVersion Include="ktsu.Extensions" Version="1.5.17" />
-    <PackageVersion Include="ktsu.Semantics.Strings" Version="1.1.1" />
-    <PackageVersion Include="ktsu.Semantics.Paths" Version="1.1.1" />
+    <PackageVersion Include="ktsu.Semantics.Strings" Version="1.1.2" />
+    <PackageVersion Include="ktsu.Semantics.Paths" Version="1.1.2" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.300" />
     <PackageVersion Include="Polyfill" Version="10.10.0" />
   </ItemGroup>
