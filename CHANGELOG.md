@@ -2,6 +2,8 @@
 
 Changes since v1.1.43:
 
+- Bump the ktsu group with 1 update ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump the ktsu group with 2 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
 - Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
 - Sync .github\dependabot.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
 - Sync icon.png ([@ktsu[bot]](https://github.com/ktsu[bot]))
