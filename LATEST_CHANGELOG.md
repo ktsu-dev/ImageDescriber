@@ -1,6 +1,7 @@
-## v1.1.44 (patch)
+## v1.1.45 (patch)
 
-Changes since v1.1.43:
+Changes since v1.1.44:
 
-- build: add console tools and JSON converter packages ([@matt-edmondson](https://github.com/matt-edmondson))
+- Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync global.json ([@ktsu[bot]](https://github.com/ktsu[bot]))
 
