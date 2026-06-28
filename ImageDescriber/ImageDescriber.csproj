@@ -17,8 +17,11 @@
     <PackageReference Include="ktsu.Extensions" />
     <PackageReference Include="ktsu.Semantics.Strings" />
     <PackageReference Include="ktsu.Semantics.Paths" />
-    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
     <PackageReference Include="Polyfill" />
-  </ItemGroup>
+  
+    <PackageReference Include="ConsoleTools.Controls.Menus" />
+    <PackageReference Include="ktsu.RoundTripStringJsonConverter" />
+    <PackageReference Include="ConsoleTools.Core" />
+    <PackageReference Include="ConsoleTools.Controls" /></ItemGroup>
 
 </Project>
