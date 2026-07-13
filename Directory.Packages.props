@@ -13,6 +13,6 @@
     <PackageVersion Include="ConsoleTools.Controls" Version="1.2.1" />
     <PackageVersion Include="ConsoleTools.Controls.Menus" Version="1.2.1" />
     <PackageVersion Include="ConsoleTools.Core" Version="1.2.1" />
-    <PackageVersion Include="ktsu.RoundTripStringJsonConverter" Version="1.0.19" />
+    <PackageVersion Include="ktsu.RoundTripStringJsonConverter" Version="1.0.20" />
   </ItemGroup>
 </Project>
