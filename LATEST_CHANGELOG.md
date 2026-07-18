@@ -1,6 +1,4 @@
-## v1.1.59 (patch)
+## v1.1.59
 
-Changes since v1.1.58:
-
-- Bump the ktsu group with 3 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
+No significant changes detected since v1.1.59.
 
