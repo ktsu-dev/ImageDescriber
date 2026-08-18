@@ -1,6 +1,8 @@
-## v1.1.75
+## v1.1.76 (patch)
 
-No significant changes detected since v1.1.75.
+Changes since v1.1.75:
+
+- Stop Update SDKs failing when there is nothing to update ([@matt-edmondson](https://github.com/matt-edmondson))
 
 ## v1.1.75 (patch)
 
