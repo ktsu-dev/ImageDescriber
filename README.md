@@ -5,7 +5,7 @@ A .NET 10 CLI that uses a local Ollama vision model to generate descriptions and
 [![License](https://img.shields.io/github/license/ktsu-dev/ImageDescriber.svg?label=License&logo=nuget)](LICENSE.md)
 [![GitHub commit activity](https://img.shields.io/github/commit-activity/m/ktsu-dev/ImageDescriber?label=Commits&logo=github)](https://github.com/ktsu-dev/ImageDescriber/commits/main)
 [![GitHub contributors](https://img.shields.io/github/contributors/ktsu-dev/ImageDescriber?label=Contributors&logo=github)](https://github.com/ktsu-dev/ImageDescriber/graphs/contributors)
-[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/ktsu-dev/ImageDescriber/dotnet.yml?label=Build&logo=github)](https://github.com/ktsu-dev/ImageDescriber/actions)
+[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/ktsu-dev/ImageDescriber/dotnet.yml?branch=main&label=Build&logo=github)](https://github.com/ktsu-dev/ImageDescriber/actions)
 
 ## What it does
 
