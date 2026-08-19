@@ -1,1 +1,1 @@
-ImageDescriber
+A .NET command-line tool that uses a local Ollama vision model to generate descriptions and suggested filenames for images in bulk. Recursively scans a directory for common image formats, computes a content hash for each file, and captions each unique image, persisting results in a JSON database keyed by hash so identical images at different paths share one record and re-scans skip already-described content. All inference runs locally against Ollama, so no cloud APIs are called.
