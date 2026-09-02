@@ -5,14 +5,14 @@
   <ItemGroup>
     <PackageVersion Include="CommandLineParser" Version="2.9.1" />
     <PackageVersion Include="ConsoleTools" Version="1.2.1" />
-    <PackageVersion Include="ktsu.AppDataStorage" Version="1.16.47" />
+    <PackageVersion Include="ktsu.AppDataStorage" Version="1.16.48" />
     <PackageVersion Include="ktsu.Extensions" Version="1.6.8" />
-    <PackageVersion Include="ktsu.Semantics.Strings" Version="3.2.2" />
-    <PackageVersion Include="ktsu.Semantics.Paths" Version="3.2.2" />
+    <PackageVersion Include="ktsu.Semantics.Strings" Version="3.2.3" />
+    <PackageVersion Include="ktsu.Semantics.Paths" Version="3.2.3" />
     <PackageVersion Include="Polyfill" Version="11.2.0" />
     <PackageVersion Include="ConsoleTools.Controls" Version="1.2.1" />
     <PackageVersion Include="ConsoleTools.Controls.Menus" Version="1.2.1" />
     <PackageVersion Include="ConsoleTools.Core" Version="1.2.1" />
-    <PackageVersion Include="ktsu.RoundTripStringJsonConverter" Version="1.0.49" />
+    <PackageVersion Include="ktsu.RoundTripStringJsonConverter" Version="1.0.50" />
   </ItemGroup>
 </Project>
