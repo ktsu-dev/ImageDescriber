@@ -1,6 +1,6 @@
-## v1.1.93 (patch)
+## v1.1.94 (patch)
 
-Changes since v1.1.92:
+Changes since v1.1.93:
 
-- Bump the ktsu group with 4 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump the ktsu group with 5 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
 
