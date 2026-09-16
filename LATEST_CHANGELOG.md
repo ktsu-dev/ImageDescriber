@@ -1,6 +1,6 @@
-## v1.1.96 (patch)
+## v1.1.97 (patch)
 
-Changes since v1.1.95:
+Changes since v1.1.96:
 
-- Bump the ktsu group with 5 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Gate Dependabot auto-merge on CI actually being green ([@Claude](https://github.com/Claude))
 
