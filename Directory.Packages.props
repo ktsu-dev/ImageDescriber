@@ -9,7 +9,7 @@
     <PackageVersion Include="ktsu.Extensions" Version="1.6.15" />
     <PackageVersion Include="ktsu.Semantics.Strings" Version="5.4.2" />
     <PackageVersion Include="ktsu.Semantics.Paths" Version="5.4.2" />
-    <PackageVersion Include="Polyfill" Version="11.3.0" />
+    <PackageVersion Include="Polyfill" Version="11.4.0" />
     <PackageVersion Include="ConsoleTools.Controls" Version="1.2.1" />
     <PackageVersion Include="ConsoleTools.Controls.Menus" Version="1.2.1" />
     <PackageVersion Include="ConsoleTools.Core" Version="1.2.1" />
