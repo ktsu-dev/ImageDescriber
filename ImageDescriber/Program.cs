@@ -2,7 +2,7 @@
 
 [assembly: CLSCompliant(false)]
 [assembly: System.Runtime.InteropServices.ComVisible(false)]
-[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("ImageDescriber.Test")]
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("ktsu.ImageDescriber.Test")]
 
 namespace ktsu.ImageDescriber;
 
