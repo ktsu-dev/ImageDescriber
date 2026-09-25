@@ -1,6 +1,6 @@
-## v1.1.104 (patch)
+## v1.1.105 (patch)
 
-Changes since v1.1.103:
+Changes since v1.1.104:
 
-- Bump the ktsu group with 14 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump the ktsu group with 4 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
 
