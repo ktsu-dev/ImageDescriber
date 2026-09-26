@@ -2,6 +2,12 @@
 
 namespace ktsu.ImageDescriber.Tests;
 
+using System.Collections.Concurrent;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
+using System.Text.Json;
+
 using ktsu.ImageDescriber.Verbs;
 using ktsu.Semantics.Paths;
 using ktsu.Semantics.Strings;
@@ -79,5 +85,121 @@ public class ScanTests
 		FileName result = Scan.SanitizeFileName("sunset-over-ocean", ".webp".As<FileExtension>());
 
 		Assert.AreEqual("sunset-over-ocean.webp", result.WeakString);
+	}
+
+	[TestMethod]
+	public void HashFilesSkipsFilesThatCannotBeRead()
+	{
+		string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+		Directory.CreateDirectory(tempDir);
+
+		try
+		{
+			AbsoluteFilePath real = Path.Combine(tempDir, "real.jpg").As<AbsoluteFilePath>();
+			AbsoluteFilePath missing = Path.Combine(tempDir, "broken.jpg").As<AbsoluteFilePath>();
+			File.WriteAllBytes(real.WeakString, [0xFF, 0xD8]);
+
+			Dictionary<AbsoluteFilePath, string> hashes = ImageHasher.HashFiles([real, missing]);
+
+			Assert.AreEqual(1, hashes.Count);
+			Assert.IsTrue(hashes.ContainsKey(real));
+		}
+		finally
+		{
+			Directory.Delete(tempDir, true);
+		}
+	}
+
+	[TestMethod]
+	public void DescribeImagesContinuesPastPerImageFailures()
+	{
+		string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+		Directory.CreateDirectory(tempDir);
+
+		using HttpListener listener = StartFakeOllama(out string endpoint);
+		try
+		{
+			AbsoluteFilePath good = Path.Combine(tempDir, "good.jpg").As<AbsoluteFilePath>();
+			AbsoluteFilePath bad = Path.Combine(tempDir, "bad.jpg").As<AbsoluteFilePath>();
+			AbsoluteFilePath gone = Path.Combine(tempDir, "gone.jpg").As<AbsoluteFilePath>();
+			File.WriteAllBytes(good.WeakString, [0xFF, 0xD8]);
+			File.WriteAllBytes(bad.WeakString, [0xFF, 0xD8]);
+
+			Dictionary<string, List<AbsoluteFilePath>> newHashPaths = new()
+			{
+				["good"] = [good],
+				["bad"] = [bad],
+				["gone"] = [gone],
+			};
+			ConcurrentBag<ImageDescription> stored = [];
+
+			IReadOnlyList<string> failures = Scan.DescribeImages(
+				newHashPaths,
+				endpoint.As<OllamaEndpoint>(),
+				"test-model".As<OllamaModelName>(),
+				"Describe.",
+				"Name it.",
+				maxConcurrency: 1,
+				stored.Add);
+
+			Assert.AreEqual(1, stored.Count);
+			Assert.AreEqual("good", stored.Single().Hash);
+			Assert.AreEqual("a dog on a beach", stored.Single().Description);
+			Assert.AreEqual(2, failures.Count);
+			Assert.IsTrue(failures.Any(f => f.Contains("bad.jpg", StringComparison.Ordinal) && f.Contains(nameof(JsonException), StringComparison.Ordinal)));
+			Assert.IsTrue(failures.Any(f => f.Contains("gone.jpg", StringComparison.Ordinal)));
+		}
+		finally
+		{
+			listener.Stop();
+			Directory.Delete(tempDir, true);
+		}
+	}
+
+	/// <summary>
+	/// Serves /api/generate like Ollama, except that a request mentioning bad.jpg gets an HTML
+	/// page, as a proxy or the wrong service on the endpoint would return.
+	/// </summary>
+	private static HttpListener StartFakeOllama(out string endpoint)
+	{
+		using TcpListener portFinder = new(IPAddress.Loopback, 0);
+		portFinder.Start();
+		int port = ((IPEndPoint)portFinder.LocalEndpoint).Port;
+		portFinder.Stop();
+
+		endpoint = $"http://localhost:{port}";
+		HttpListener listener = new();
+		listener.Prefixes.Add($"{endpoint}/");
+		listener.Start();
+
+		_ = Task.Run(async () =>
+		{
+			while (listener.IsListening)
+			{
+				HttpListenerContext context;
+				try
+				{
+					context = await listener.GetContextAsync().ConfigureAwait(false);
+				}
+				catch (HttpListenerException)
+				{
+					return;
+				}
+				catch (ObjectDisposedException)
+				{
+					return;
+				}
+
+				using StreamReader reader = new(context.Request.InputStream);
+				string body = await reader.ReadToEndAsync().ConfigureAwait(false);
+				bool isBad = body.Contains("bad.jpg", StringComparison.Ordinal);
+				context.Response.ContentType = isBad ? "text/html" : "application/json";
+				byte[] response = Encoding.UTF8.GetBytes(isBad ? "<html>Not Ollama</html>" : "{\"response\":\"a dog on a beach\"}");
+				await context.Response.OutputStream.WriteAsync(response).ConfigureAwait(false);
+				context.Response.Close();
+			}
+		});
+
+		return listener;
 	}
 }
