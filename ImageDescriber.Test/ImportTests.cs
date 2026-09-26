@@ -9,6 +9,10 @@ using ktsu.Semantics.Strings;
 [TestClass]
 public class ImportTests
 {
+	private static readonly string[] ExpectedHeader = ["h1", "h2"];
+	private static readonly string[] ExpectedMultiLineRecord = ["a\nb", "c"];
+	private static readonly string[] ExpectedEscapedQuoteRecord = ["d", "e\"f"];
+
 	[TestMethod]
 	public void ParseCsvLineSimpleFields()
 	{
@@ -183,5 +187,73 @@ public class ImportTests
 
 		Assert.IsFalse(result);
 		Assert.AreEqual(1, target.KnownPaths.Count);
+	}
+
+	[TestMethod]
+	public void CsvExportThenImportRoundTripsEveryField()
+	{
+		string tempDir = Path.GetTempPath();
+		ImageDescription[] originals =
+		[
+			new()
+			{
+				Hash = new string('a', 64),
+				SuggestedFileName = "dog-on-beach.jpg".As<FileName>(),
+				KnownPaths = [Path.Combine(tempDir, "a.jpg").As<AbsoluteFilePath>(), Path.Combine(tempDir, "b.jpg").As<AbsoluteFilePath>()],
+				Model = "llama3.2-vision".As<OllamaModelName>(),
+				DescribedAt = new DateTime(2026, 9, 26, 7, 10, 12, DateTimeKind.Utc),
+				FileSizeBytes = 12345,
+				Description = "A dog on a beach.\n\nThe sky is blue, and the dog says \"woof\".",
+			},
+			new()
+			{
+				Hash = new string('b', 64),
+				SuggestedFileName = "dog, cat \"friends\".jpg".As<FileName>(),
+				KnownPaths = [Path.Combine(tempDir, "c.jpg").As<AbsoluteFilePath>()],
+				Model = "llava".As<OllamaModelName>(),
+				DescribedAt = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc),
+				FileSizeBytes = 1,
+				Description = "Two animals.\r\nOn a sofa.",
+			},
+			new()
+			{
+				Hash = new string('c', 64),
+				SuggestedFileName = "plain.jpg".As<FileName>(),
+				KnownPaths = [Path.Combine(tempDir, "d.jpg").As<AbsoluteFilePath>()],
+				Model = "llava".As<OllamaModelName>(),
+				DescribedAt = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc),
+				FileSizeBytes = 2,
+				Description = "Simple.",
+			},
+		];
+
+		List<ImageDescription> imported = Import.ParseCsv(Export.BuildCsv(originals));
+
+		Assert.AreEqual(originals.Length, imported.Count);
+		for (int i = 0; i < originals.Length; i++)
+		{
+			ImageDescription expected = originals[i];
+			ImageDescription actual = imported[i];
+			Assert.AreEqual(expected.Hash, actual.Hash);
+			Assert.AreEqual(expected.SuggestedFileName, actual.SuggestedFileName);
+			CollectionAssert.AreEqual(expected.KnownPaths, actual.KnownPaths);
+			Assert.AreEqual(expected.Model, actual.Model);
+			Assert.AreEqual(expected.DescribedAt, actual.DescribedAt);
+			Assert.AreEqual(expected.FileSizeBytes, actual.FileSizeBytes);
+			Assert.AreEqual(expected.Description, actual.Description);
+		}
+	}
+
+	[TestMethod]
+	public void ParseCsvRecordsKeepsLineBreaksInsideQuotedFields()
+	{
+		List<(int LineNumber, List<string> Fields)> records = Import.ParseCsvRecords("h1,h2\r\n\"a\nb\",c\r\n\r\nd,\"e\"\"f\"\n");
+
+		Assert.AreEqual(3, records.Count);
+		CollectionAssert.AreEqual(ExpectedHeader, records[0].Fields);
+		CollectionAssert.AreEqual(ExpectedMultiLineRecord, records[1].Fields);
+		Assert.AreEqual(2, records[1].LineNumber);
+		CollectionAssert.AreEqual(ExpectedEscapedQuoteRecord, records[2].Fields);
+		Assert.AreEqual(5, records[2].LineNumber);
 	}
 }
