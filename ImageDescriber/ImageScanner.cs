@@ -39,7 +39,9 @@ internal static class ImageScanner
 				continue;
 			}
 
-			if (ImageExtensions.Contains(ext.As<FileExtension>()))
+			// FileExtension compares ordinally, and cameras and Windows tools write .JPG/.PNG,
+			// so fold to the lower-case form the set holds before looking it up.
+			if (ImageExtensions.Contains(ext.ToLowerInvariant().As<FileExtension>()))
 			{
 				imageFiles.Add(file.As<AbsoluteFilePath>());
 			}
