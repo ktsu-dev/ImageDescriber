@@ -143,21 +143,28 @@ internal sealed class Scan : BaseVerb<Scan>
 				}
 			});
 
-		if (failures.Count > 0)
-		{
-			Console.WriteLine();
-			Console.WriteLine($"Failed to describe {failures.Count} image(s):");
-			foreach (string failure in failures)
-			{
-				Console.WriteLine($"  {failure}");
-			}
-		}
+		PrintFailureSummary(failures);
 
 		Console.WriteLine();
 		Console.WriteLine("Scan complete.");
 		Console.WriteLine($"Total descriptions in database: {Program.Settings.Descriptions.Count}");
 
 		PathString = ".";
+	}
+
+	private static void PrintFailureSummary(IReadOnlyList<string> failures)
+	{
+		if (failures.Count == 0)
+		{
+			return;
+		}
+
+		Console.WriteLine();
+		Console.WriteLine($"Failed to describe {failures.Count} image(s):");
+		foreach (string failure in failures)
+		{
+			Console.WriteLine($"  {failure}");
+		}
 	}
 
 	/// <summary>

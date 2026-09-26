@@ -101,7 +101,7 @@ public class ScanTests
 
 			Dictionary<AbsoluteFilePath, string> hashes = ImageHasher.HashFiles([real, missing]);
 
-			Assert.AreEqual(1, hashes.Count);
+			Assert.HasCount(1, hashes);
 			Assert.IsTrue(hashes.ContainsKey(real));
 		}
 		finally
@@ -142,12 +142,12 @@ public class ScanTests
 				maxConcurrency: 1,
 				stored.Add);
 
-			Assert.AreEqual(1, stored.Count);
+			Assert.HasCount(1, stored);
 			Assert.AreEqual("good", stored.Single().Hash);
 			Assert.AreEqual("a dog on a beach", stored.Single().Description);
-			Assert.AreEqual(2, failures.Count);
-			Assert.IsTrue(failures.Any(f => f.Contains("bad.jpg", StringComparison.Ordinal) && f.Contains(nameof(JsonException), StringComparison.Ordinal)));
-			Assert.IsTrue(failures.Any(f => f.Contains("gone.jpg", StringComparison.Ordinal)));
+			Assert.HasCount(2, failures);
+			Assert.Contains(f => f.Contains("bad.jpg", StringComparison.Ordinal) && f.Contains(nameof(JsonException), StringComparison.Ordinal), failures);
+			Assert.Contains(f => f.Contains("gone.jpg", StringComparison.Ordinal), failures);
 		}
 		finally
 		{
@@ -185,9 +185,9 @@ public class ScanTests
 		}
 
 		string text = output.ToString();
-		StringAssert.Contains(text, "Failed to describe 1 image(s):");
-		StringAssert.Contains(text, "bad.jpg: JsonException");
-		StringAssert.Contains(text, "Scan complete.");
+		Assert.Contains("Failed to describe 1 image(s):", text);
+		Assert.Contains("bad.jpg: JsonException", text);
+		Assert.Contains("Scan complete.", text);
 	}
 
 	/// <summary>
