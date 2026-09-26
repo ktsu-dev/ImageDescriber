@@ -20,7 +20,22 @@ internal static class ImageHasher
 
 		Parallel.ForEach(filePaths, filePath =>
 		{
-			string hash = ComputeHash(filePath);
+			string hash;
+			try
+			{
+				hash = ComputeHash(filePath);
+			}
+			catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+			{
+				// One unreadable, locked or dangling file must not abort hashing the rest.
+				lock (ConsoleLock)
+				{
+					Console.WriteLine($"  Warning: could not hash {filePath}: {ex.Message}");
+				}
+
+				return;
+			}
+
 			results[filePath] = hash;
 
 			lock (ConsoleLock)

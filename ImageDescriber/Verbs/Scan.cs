@@ -2,8 +2,11 @@
 
 namespace ktsu.ImageDescriber.Verbs;
 
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Net.Http;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -118,16 +121,71 @@ internal sealed class Scan : BaseVerb<Scan>
 		Console.WriteLine();
 
 		// Step 5: Describe new images with configurable concurrency
-		string descriptionPrompt = Program.Settings.DescriptionPrompt;
-		string fileNamePrompt = Program.Settings.SuggestedFileNamePrompt;
 		int maxConcurrency = Math.Max(1, Program.Settings.MaxConcurrentRequests);
-		int current = 0;
-		int total = newHashPaths.Count;
-		Lock consoleLock = new();
 		Lock saveLock = new();
 
 		Console.WriteLine($"Processing with {maxConcurrency} concurrent request(s)...");
 		Console.WriteLine();
+
+		IReadOnlyList<string> failures = DescribeImages(
+			newHashPaths,
+			options.Endpoint,
+			options.Model,
+			Program.Settings.DescriptionPrompt,
+			Program.Settings.SuggestedFileNamePrompt,
+			maxConcurrency,
+			entry =>
+			{
+				lock (saveLock)
+				{
+					Program.Settings.Descriptions[entry.Hash] = entry;
+					Program.Settings.Save();
+				}
+			});
+
+		PrintFailureSummary(failures);
+
+		Console.WriteLine();
+		Console.WriteLine("Scan complete.");
+		Console.WriteLine($"Total descriptions in database: {Program.Settings.Descriptions.Count}");
+
+		PathString = ".";
+	}
+
+	private static void PrintFailureSummary(IReadOnlyList<string> failures)
+	{
+		if (failures.Count == 0)
+		{
+			return;
+		}
+
+		Console.WriteLine();
+		Console.WriteLine($"Failed to describe {failures.Count} image(s):");
+		foreach (string failure in failures)
+		{
+			Console.WriteLine($"  {failure}");
+		}
+	}
+
+	/// <summary>
+	/// Describes each new image and hands every finished entry to <paramref name="store"/>.
+	/// A failure on one image is logged and returned rather than thrown, so one bad file or one
+	/// bad or timed-out model response does not abort a run that may have been going for hours.
+	/// </summary>
+	/// <returns>One line per image that could not be described.</returns>
+	internal static IReadOnlyList<string> DescribeImages(
+		Dictionary<string, List<AbsoluteFilePath>> newHashPaths,
+		OllamaEndpoint endpoint,
+		OllamaModelName model,
+		string descriptionPrompt,
+		string fileNamePrompt,
+		int maxConcurrency,
+		Action<ImageDescription> store)
+	{
+		int current = 0;
+		int total = newHashPaths.Count;
+		Lock consoleLock = new();
+		ConcurrentQueue<string> failures = new();
 
 		ParallelOptions parallelOptions = new() { MaxDegreeOfParallelism = maxConcurrency };
 
@@ -146,10 +204,10 @@ internal sealed class Scan : BaseVerb<Scan>
 			{
 				string pathContext = string.Join("\n", paths.Select(p => p.WeakString));
 				string fullPrompt = $"Known file paths for this image:\n{pathContext}\n\n{descriptionPrompt}";
-				string description = OllamaClient.DescribeImageAsync(options.Endpoint, options.Model, fullPrompt, filePath).GetAwaiter().GetResult();
+				string description = OllamaClient.DescribeImageAsync(endpoint, model, fullPrompt, filePath).GetAwaiter().GetResult();
 
 				string combinedFileNamePrompt = $"Image description: {description}\n\n{fileNamePrompt}";
-				string rawSuggestion = OllamaClient.GenerateAsync(options.Endpoint, options.Model, combinedFileNamePrompt).GetAwaiter().GetResult();
+				string rawSuggestion = OllamaClient.GenerateAsync(endpoint, model, combinedFileNamePrompt).GetAwaiter().GetResult();
 				FileName suggestedFileName = SanitizeFileName(rawSuggestion, filePath.FileExtension);
 
 				ImageDescription entry = new()
@@ -158,16 +216,12 @@ internal sealed class Scan : BaseVerb<Scan>
 					KnownPaths = [.. paths],
 					Description = description,
 					SuggestedFileName = suggestedFileName,
-					Model = options.Model,
+					Model = model,
 					DescribedAt = DateTime.UtcNow,
 					FileSizeBytes = new FileInfo(filePath.WeakString).Length,
 				};
 
-				lock (saveLock)
-				{
-					Program.Settings.Descriptions[hash] = entry;
-					Program.Settings.Save();
-				}
+				store(entry);
 
 				lock (consoleLock)
 				{
@@ -175,8 +229,11 @@ internal sealed class Scan : BaseVerb<Scan>
 					Console.WriteLine($"  [{index}/{total}] Done: {description[..Math.Min(80, description.Length)]}...");
 				}
 			}
-			catch (HttpRequestException ex)
+			catch (Exception ex) when (ex is HttpRequestException or JsonException or OperationCanceledException or IOException or UnauthorizedAccessException)
 			{
+				// OperationCanceledException covers the TaskCanceledException HttpClient throws on timeout.
+				string failure = $"{filePath}: {ex.GetType().Name}: {ex.Message}";
+				failures.Enqueue(failure);
 				lock (consoleLock)
 				{
 					Console.WriteLine($"  [{index}/{total}] Error describing {filePath.FileName}: {ex.Message}");
@@ -184,10 +241,7 @@ internal sealed class Scan : BaseVerb<Scan>
 			}
 		});
 
-		Console.WriteLine("Scan complete.");
-		Console.WriteLine($"Total descriptions in database: {Program.Settings.Descriptions.Count}");
-
-		PathString = ".";
+		return [.. failures];
 	}
 
 	internal static FileName SanitizeFileName(string rawSuggestion, FileExtension extension)
