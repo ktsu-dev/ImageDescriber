@@ -5,6 +5,7 @@ namespace ktsu.ImageDescriber;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 
 using ktsu.Semantics.Paths;
@@ -30,6 +31,13 @@ internal static class ImageHasher
 
 		return new Dictionary<AbsoluteFilePath, string>(results);
 	}
+
+	internal const int HashLength = 64;
+
+	internal static bool IsValidHash(string? hash) =>
+		hash is { Length: HashLength } && hash.All(char.IsAsciiHexDigit);
+
+	internal static string ShortHash(string hash) => hash[..Math.Min(12, hash.Length)];
 
 	internal static string ComputeHash(AbsoluteFilePath filePath)
 	{
