@@ -229,14 +229,14 @@ public class ImportTests
 
 		List<ImageDescription> imported = Import.ParseCsv(Export.BuildCsv(originals));
 
-		Assert.AreEqual(originals.Length, imported.Count);
+		Assert.HasCount(originals.Length, imported);
 		for (int i = 0; i < originals.Length; i++)
 		{
 			ImageDescription expected = originals[i];
 			ImageDescription actual = imported[i];
 			Assert.AreEqual(expected.Hash, actual.Hash);
 			Assert.AreEqual(expected.SuggestedFileName, actual.SuggestedFileName);
-			CollectionAssert.AreEqual(expected.KnownPaths, actual.KnownPaths);
+			Assert.AreSequenceEqual(expected.KnownPaths, actual.KnownPaths);
 			Assert.AreEqual(expected.Model, actual.Model);
 			Assert.AreEqual(expected.DescribedAt, actual.DescribedAt);
 			Assert.AreEqual(expected.FileSizeBytes, actual.FileSizeBytes);
@@ -249,11 +249,11 @@ public class ImportTests
 	{
 		List<(int LineNumber, List<string> Fields)> records = Import.ParseCsvRecords("h1,h2\r\n\"a\nb\",c\r\n\r\nd,\"e\"\"f\"\n");
 
-		Assert.AreEqual(3, records.Count);
-		CollectionAssert.AreEqual(ExpectedHeader, records[0].Fields);
-		CollectionAssert.AreEqual(ExpectedMultiLineRecord, records[1].Fields);
+		Assert.HasCount(3, records);
+		Assert.AreSequenceEqual(ExpectedHeader, records[0].Fields);
+		Assert.AreSequenceEqual(ExpectedMultiLineRecord, records[1].Fields);
 		Assert.AreEqual(2, records[1].LineNumber);
-		CollectionAssert.AreEqual(ExpectedEscapedQuoteRecord, records[2].Fields);
+		Assert.AreSequenceEqual(ExpectedEscapedQuoteRecord, records[2].Fields);
 		Assert.AreEqual(5, records[2].LineNumber);
 	}
 }

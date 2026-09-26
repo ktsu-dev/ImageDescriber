@@ -217,38 +217,18 @@ internal sealed class Import : BaseVerb<Import>
 		List<(int LineNumber, List<string> Fields)> records = [];
 		List<string> fields = [];
 		StringBuilder field = new();
-		bool inQuotes = false;
 		bool recordHasContent = false;
 		int line = 1;
 		int recordLine = 1;
 
-		for (int i = 0; i < text.Length; i++)
+		int i = 0;
+		while (i < text.Length)
 		{
-			char c = text[i];
-			if (inQuotes)
-			{
-				if (c != '"')
-				{
-					line += c == '\n' ? 1 : 0;
-					field.Append(c);
-				}
-				else if (i + 1 < text.Length && text[i + 1] == '"')
-				{
-					field.Append('"');
-					i++;
-				}
-				else
-				{
-					inQuotes = false;
-				}
-
-				continue;
-			}
-
+			char c = text[i++];
 			switch (c)
 			{
 				case '"':
-					inQuotes = true;
+					i = ReadQuotedField(text, i, field, ref line);
 					recordHasContent = true;
 					break;
 				case ',':
@@ -285,5 +265,34 @@ internal sealed class Import : BaseVerb<Import>
 			field.Clear();
 			recordHasContent = false;
 		}
+	}
+
+	/// <summary>
+	/// Reads a quoted field's contents into <paramref name="field"/>, starting just after its
+	/// opening quote, and returns the index just after its closing quote.
+	/// </summary>
+	private static int ReadQuotedField(string text, int start, StringBuilder field, ref int line)
+	{
+		int i = start;
+		while (i < text.Length)
+		{
+			char c = text[i++];
+			if (c != '"')
+			{
+				line += c == '\n' ? 1 : 0;
+				field.Append(c);
+			}
+			else if (i < text.Length && text[i] == '"')
+			{
+				field.Append('"');
+				i++;
+			}
+			else
+			{
+				return i;
+			}
+		}
+
+		return i;
 	}
 }
