@@ -85,7 +85,7 @@ internal sealed class Import : BaseVerb<Import>
 		}
 	}
 
-	private static (int NewCount, int UpdatedCount, int SkippedCount) MergeEntries(List<ImageDescription> entries)
+	internal static (int NewCount, int UpdatedCount, int SkippedCount) MergeEntries(List<ImageDescription> entries)
 	{
 		int newCount = 0;
 		int updatedCount = 0;
@@ -95,6 +95,15 @@ internal sealed class Import : BaseVerb<Import>
 		{
 			if (string.IsNullOrEmpty(entry.Hash))
 			{
+				skippedCount++;
+				continue;
+			}
+
+			// Every stored hash is a SHA-256 hex string, and Search and Scan both slice it, so a
+			// malformed one would crash them on every later run rather than just this import.
+			if (!ImageHasher.IsValidHash(entry.Hash))
+			{
+				Console.WriteLine($"  Skipping entry with invalid hash \"{entry.Hash}\" ({entry.SuggestedFileName}): expected {ImageHasher.HashLength} hex characters.");
 				skippedCount++;
 				continue;
 			}

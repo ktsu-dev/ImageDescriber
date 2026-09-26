@@ -37,7 +37,7 @@ internal sealed class Search : BaseVerb<Search>
 		foreach (ImageDescription desc in matches)
 		{
 			Console.WriteLine($"  Suggested: {desc.SuggestedFileName}");
-			Console.WriteLine($"  Hash: {desc.Hash[..12]}...");
+			Console.WriteLine($"  Hash: {ImageHasher.ShortHash(desc.Hash)}...");
 			Console.WriteLine($"  Date: {desc.DescribedAt:yyyy-MM-dd HH:mm:ss} UTC");
 			Console.WriteLine($"  Paths ({desc.KnownPaths.Count}):");
 			foreach (AbsoluteFilePath path in desc.KnownPaths)
