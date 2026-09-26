@@ -126,4 +126,30 @@ public class ImageScannerTests
 			Directory.Delete(tempDir, true);
 		}
 	}
+
+	[TestMethod]
+	public void ScanForImagesMatchesExtensionsCaseInsensitively()
+	{
+		string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+		Directory.CreateDirectory(tempDir);
+
+		try
+		{
+			File.WriteAllBytes(Path.Combine(tempDir, "IMG_0001.JPG"), [0xFF, 0xD8]);
+			File.WriteAllBytes(Path.Combine(tempDir, "screenshot.Png"), [0x89, 0x50]);
+			File.WriteAllBytes(Path.Combine(tempDir, "photo.jpeg"), [0xFF, 0xD8]);
+			File.WriteAllBytes(Path.Combine(tempDir, "scan.TIFF"), [0x49, 0x49]);
+			File.WriteAllText(Path.Combine(tempDir, "NOTES.TXT"), "text");
+
+			IReadOnlyList<AbsoluteFilePath> results = ImageScanner.ScanForImages(tempDir.As<AbsoluteDirectoryPath>());
+
+			string[] names = [.. results.Select(r => Path.GetFileName(r.WeakString)).Order(StringComparer.Ordinal)];
+			string[] expected = ["IMG_0001.JPG", "photo.jpeg", "scan.TIFF", "screenshot.Png"];
+			CollectionAssert.AreEqual(expected, names);
+		}
+		finally
+		{
+			Directory.Delete(tempDir, true);
+		}
+	}
 }
