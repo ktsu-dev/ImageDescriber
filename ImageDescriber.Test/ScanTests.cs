@@ -156,6 +156,40 @@ public class ScanTests
 		}
 	}
 
+	[TestMethod]
+	public void ScanReportsFailedImagesAndCompletes()
+	{
+		string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+		Directory.CreateDirectory(tempDir);
+		PersistentState originalSettings = Program.Settings;
+		TextWriter originalOut = Console.Out;
+
+		using HttpListener listener = StartFakeOllama(out string endpoint);
+		using StringWriter output = new();
+		try
+		{
+			// Every image fails, so nothing is described and nothing is saved to the real app data.
+			File.WriteAllBytes(Path.Combine(tempDir, "bad.jpg"), [0xFF, 0xD8]);
+			Program.Settings = new PersistentState();
+			Console.SetOut(output);
+
+			Scan scan = new() { PathString = tempDir, EndpointString = endpoint, ModelString = "test-model" };
+			scan.Run(scan);
+		}
+		finally
+		{
+			Console.SetOut(originalOut);
+			Program.Settings = originalSettings;
+			listener.Stop();
+			Directory.Delete(tempDir, true);
+		}
+
+		string text = output.ToString();
+		StringAssert.Contains(text, "Failed to describe 1 image(s):");
+		StringAssert.Contains(text, "bad.jpg: JsonException");
+		StringAssert.Contains(text, "Scan complete.");
+	}
+
 	/// <summary>
 	/// Serves /api/generate like Ollama, except that a request mentioning bad.jpg gets an HTML
 	/// page, as a proxy or the wrong service on the endpoint would return.
