@@ -147,32 +147,31 @@ internal sealed class Import : BaseVerb<Import>
 		return JsonSerializer.Deserialize<List<ImageDescription>>(json, JsonOptions) ?? [];
 	}
 
-	private static List<ImageDescription> ImportCsv(AbsoluteFilePath inputPath)
+	private static List<ImageDescription> ImportCsv(AbsoluteFilePath inputPath) =>
+		ParseCsv(File.ReadAllText(inputPath.WeakString));
+
+	internal static List<ImageDescription> ParseCsv(string text)
 	{
 		List<ImageDescription> entries = [];
-		string[] lines = File.ReadAllLines(inputPath.WeakString);
 
-		if (lines.Length < 2)
+		// Parse the whole text rather than line by line, because a quoted field may span lines.
+		List<(int LineNumber, List<string> Fields)> records = [.. ParseCsvRecords(text)
+			.Where(r => r.Fields.Count > 1 || !string.IsNullOrWhiteSpace(r.Fields[0]))];
+
+		if (records.Count < 2)
 		{
 			Console.WriteLine("CSV file is empty or has no data rows.");
 			return entries;
 		}
 
 		// Skip header row
-		for (int i = 1; i < lines.Length; i++)
+		foreach ((int lineNumber, List<string> fields) in records.Skip(1))
 		{
-			string line = lines[i];
-			if (string.IsNullOrWhiteSpace(line))
-			{
-				continue;
-			}
-
 			try
 			{
-				List<string> fields = ParseCsvLine(line);
 				if (fields.Count < 7)
 				{
-					Console.WriteLine($"  Skipping line {i + 1}: not enough fields.");
+					Console.WriteLine($"  Skipping line {lineNumber}: not enough fields.");
 					continue;
 				}
 
@@ -200,89 +199,109 @@ internal sealed class Import : BaseVerb<Import>
 			}
 			catch (FormatException ex)
 			{
-				Console.WriteLine($"  Skipping line {i + 1}: {ex.Message}");
+				Console.WriteLine($"  Skipping line {lineNumber}: {ex.Message}");
 			}
 			catch (OverflowException ex)
 			{
-				Console.WriteLine($"  Skipping line {i + 1}: {ex.Message}");
+				Console.WriteLine($"  Skipping line {lineNumber}: {ex.Message}");
 			}
 			catch (ArgumentException ex)
 			{
-				Console.WriteLine($"  Skipping line {i + 1}: {ex.Message}");
+				Console.WriteLine($"  Skipping line {lineNumber}: {ex.Message}");
 			}
 		}
 
 		return entries;
 	}
 
-	internal static List<string> ParseCsvLine(string line)
-	{
-		List<string> fields = [];
-		int i = 0;
+	internal static List<string> ParseCsvLine(string line) =>
+		ParseCsvRecords(line).Select(r => r.Fields).FirstOrDefault() ?? [];
 
-		while (i < line.Length)
+	/// <summary>
+	/// Splits CSV text into records per RFC 4180: a quoted field may contain commas, doubled
+	/// quotes and line breaks. Each record carries the 1-based line it starts on.
+	/// </summary>
+	internal static List<(int LineNumber, List<string> Fields)> ParseCsvRecords(string text)
+	{
+		List<(int LineNumber, List<string> Fields)> records = [];
+		List<string> fields = [];
+		StringBuilder field = new();
+		bool recordHasContent = false;
+		int line = 1;
+		int recordLine = 1;
+
+		int i = 0;
+		while (i < text.Length)
 		{
-			if (line[i] == '"')
+			char c = text[i++];
+			switch (c)
 			{
-				fields.Add(ParseQuotedField(line, ref i));
-			}
-			else
-			{
-				fields.Add(ParseUnquotedField(line, ref i));
+				case '"':
+					i = ReadQuotedField(text, i, field, ref line);
+					recordHasContent = true;
+					break;
+				case ',':
+					fields.Add(field.ToString());
+					field.Clear();
+					recordHasContent = true;
+					break;
+				case '\r':
+					break;
+				case '\n':
+					EndRecord();
+					line++;
+					recordLine = line;
+					break;
+				default:
+					field.Append(c);
+					recordHasContent = true;
+					break;
 			}
 		}
 
-		return fields;
+		EndRecord();
+		return records;
+
+		void EndRecord()
+		{
+			if (recordHasContent)
+			{
+				fields.Add(field.ToString());
+				records.Add((recordLine, fields));
+				fields = [];
+			}
+
+			field.Clear();
+			recordHasContent = false;
+		}
 	}
 
-	private static string ParseQuotedField(string line, ref int i)
+	/// <summary>
+	/// Reads a quoted field's contents into <paramref name="field"/>, starting just after its
+	/// opening quote, and returns the index just after its closing quote.
+	/// </summary>
+	private static int ReadQuotedField(string text, int start, StringBuilder field, ref int line)
 	{
-		i++; // skip opening quote
-		StringBuilder field = new();
-
-		while (i < line.Length)
+		int i = start;
+		while (i < text.Length)
 		{
-			if (line[i] == '"')
+			char c = text[i++];
+			if (c != '"')
 			{
-				if (i + 1 < line.Length && line[i + 1] == '"')
-				{
-					field.Append('"');
-					i += 2;
-				}
-				else
-				{
-					i++; // closing quote
-					break;
-				}
+				line += c == '\n' ? 1 : 0;
+				field.Append(c);
 			}
-			else
+			else if (i < text.Length && text[i] == '"')
 			{
-				field.Append(line[i]);
+				field.Append('"');
 				i++;
 			}
+			else
+			{
+				return i;
+			}
 		}
 
-		// Skip comma after quoted field
-		if (i < line.Length && line[i] == ',')
-		{
-			i++;
-		}
-
-		return field.ToString();
-	}
-
-	private static string ParseUnquotedField(string line, ref int i)
-	{
-		int commaIndex = line.IndexOf(',', i);
-		if (commaIndex < 0)
-		{
-			string result = line[i..];
-			i = line.Length;
-			return result;
-		}
-
-		string field = line[i..commaIndex];
-		i = commaIndex + 1;
-		return field;
+		return i;
 	}
 }

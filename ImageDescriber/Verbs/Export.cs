@@ -3,6 +3,7 @@
 namespace ktsu.ImageDescriber.Verbs;
 
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -63,19 +64,35 @@ internal sealed class Export : BaseVerb<Export>
 		File.WriteAllText(outputPath.WeakString, json, Encoding.UTF8);
 	}
 
-	private static void ExportCsv(AbsoluteFilePath outputPath, Dictionary<string, ImageDescription> descriptions)
+	private static void ExportCsv(AbsoluteFilePath outputPath, Dictionary<string, ImageDescription> descriptions) =>
+		File.WriteAllText(outputPath.WeakString, BuildCsv(descriptions.Values), Encoding.UTF8);
+
+	internal static string BuildCsv(IEnumerable<ImageDescription> descriptions)
 	{
 		StringBuilder sb = new();
 		sb.AppendLine("Hash,SuggestedFileName,KnownPaths,Model,DescribedAt,FileSizeBytes,Description");
 
-		foreach (ImageDescription desc in descriptions.Values)
+		foreach (ImageDescription desc in descriptions)
 		{
-			string escapedDescription = $"\"{desc.Description.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
 			string joinedPaths = string.Join("; ", desc.KnownPaths.Select(p => p.WeakString));
-			string escapedPaths = $"\"{joinedPaths.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
-			sb.AppendLine($"{desc.Hash},{desc.SuggestedFileName},{escapedPaths},{desc.Model},{desc.DescribedAt:O},{desc.FileSizeBytes},{escapedDescription}");
+			string[] fields =
+			[
+				desc.Hash,
+				desc.SuggestedFileName.WeakString,
+				joinedPaths,
+				desc.Model.WeakString,
+				desc.DescribedAt.ToString("O", CultureInfo.InvariantCulture),
+				desc.FileSizeBytes.ToString(CultureInfo.InvariantCulture),
+				desc.Description,
+			];
+
+			// Quote every field: file names may contain commas and quotes, and descriptions
+			// usually contain paragraph breaks, so no field is safe to write bare.
+			sb.AppendLine(string.Join(',', fields.Select(QuoteCsvField)));
 		}
 
-		File.WriteAllText(outputPath.WeakString, sb.ToString(), Encoding.UTF8);
+		return sb.ToString();
 	}
+
+	private static string QuoteCsvField(string value) => $"\"{value.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
 }
