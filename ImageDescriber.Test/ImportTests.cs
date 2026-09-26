@@ -208,7 +208,7 @@ public class ImportTests
 			new()
 			{
 				Hash = new string('b', 64),
-				SuggestedFileName = "dog, cat \"friends\".jpg".As<FileName>(),
+				SuggestedFileName = "dog, cat 'n' friends.jpg".As<FileName>(),
 				KnownPaths = [Path.Combine(tempDir, "c.jpg").As<AbsoluteFilePath>()],
 				Model = "llava".As<OllamaModelName>(),
 				DescribedAt = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc),
