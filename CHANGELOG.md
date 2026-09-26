@@ -1,3 +1,34 @@
+## v1.2.0 (minor)
+
+Changes since v1.1.0:
+
+- Move Scan's failure summary into PrintFailureSummary ([@Claude](https://github.com/Claude))
+- Split quoted-field reading out of ParseCsvRecords ([@Claude](https://github.com/Claude))
+- Cover Scan's failure summary with an end-to-end test ([@Claude](https://github.com/Claude))
+- Use a Windows-legal suggested name in the CSV round-trip test ([@Claude](https://github.com/Claude))
+- Keep scanning when one file or one model response fails ([@Claude](https://github.com/Claude))
+- Round-trip CSV exports that contain line breaks, commas or quotes ([@Claude](https://github.com/Claude))
+- Stop a short imported hash crashing every Search ([@Claude](https://github.com/Claude))
+- Scan image files whose extensions are upper-case ([@Claude](https://github.com/Claude))
+- fix: add AUTHORS.md so every identity keeps the ktsu. prefix [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
+- Gate Dependabot auto-merge on CI actually being green ([@Claude](https://github.com/Claude))
+- ci: adopt the consolidated .NET workflow [patch] ([@Claude](https://github.com/Claude))
+- ci: make the SonarQube quality gate opt in [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
+- ci: adopt the unified dotnet workflow [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
+- chore: store icon.png in LFS as .gitattributes declares ([@matt-edmondson](https://github.com/matt-edmondson))
+- docs: scope build badge to the default branch ([@matt-edmondson](https://github.com/matt-edmondson))
+- docs: correct README, DESCRIPTION and TAGS metadata ([@matt-edmondson](https://github.com/matt-edmondson))
+- Stop Update SDKs failing when there is nothing to update ([@matt-edmondson](https://github.com/matt-edmondson))
+- Fix ktsu.Sdk 2.26+ analyzer errors: new one-line copyright header (IDE0073), normalize line endings to LF (IDE0055), PrivateAssets="all" on Polyfill (KTSU0007) [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
+- Sync .runsettings ([@KtsuTools](https://github.com/KtsuTools))
+- Sync .editorconfig ([@KtsuTools](https://github.com/KtsuTools))
+- Sync .gitattributes ([@KtsuTools](https://github.com/KtsuTools))
+- Sync global.json ([@KtsuTools](https://github.com/KtsuTools))
+- build: add console tools and JSON converter packages ([@matt-edmondson](https://github.com/matt-edmondson))
+- Add TAGS.md with NuGet package tags ([@matt-edmondson](https://github.com/matt-edmondson))
+- docs: add Stats verb to README ([@matt-edmondson](https://github.com/matt-edmondson))
+- docs: replace placeholder README with usage and command reference ([@matt-edmondson](https://github.com/matt-edmondson))
+
 ## v1.1.105 (patch)
 
 Changes since v1.1.104:
