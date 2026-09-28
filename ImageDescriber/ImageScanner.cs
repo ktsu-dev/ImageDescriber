@@ -30,8 +30,16 @@ internal static class ImageScanner
 			return [];
 		}
 
+		// The SearchOption overload stops at the first folder it can't open, which on Windows is
+		// any drive or profile root, so skip unreadable folders and scan the rest of the tree.
+		EnumerationOptions options = new()
+		{
+			RecurseSubdirectories = true,
+			IgnoreInaccessible = true,
+		};
+
 		List<AbsoluteFilePath> imageFiles = [];
-		foreach (string file in Directory.EnumerateFiles(path.WeakString, "*", SearchOption.AllDirectories))
+		foreach (string file in Directory.EnumerateFiles(path.WeakString, "*", options))
 		{
 			string ext = Path.GetExtension(file);
 			if (string.IsNullOrEmpty(ext))
