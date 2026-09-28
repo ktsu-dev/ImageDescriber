@@ -88,6 +88,62 @@ public class ScanTests
 	}
 
 	[TestMethod]
+	public void SanitizeFileNameTakesNameFromInsideCodeFence()
+	{
+		FileName result = Scan.SanitizeFileName("```\nsunset-over-lake\n```", ".jpg".As<FileExtension>());
+
+		Assert.AreEqual("sunset-over-lake.jpg", result.WeakString);
+	}
+
+	[TestMethod]
+	public void SanitizeFileNameTakesNameFromInsideCodeFenceWithLanguage()
+	{
+		FileName result = Scan.SanitizeFileName("```text\r\nsunset-over-lake\r\n```", ".jpg".As<FileExtension>());
+
+		Assert.AreEqual("sunset-over-lake.jpg", result.WeakString);
+	}
+
+	[TestMethod]
+	public void SanitizeFileNameTakesNameFromInlineCodeFence()
+	{
+		FileName result = Scan.SanitizeFileName("```sunset-over-lake```", ".jpg".As<FileExtension>());
+
+		Assert.AreEqual("sunset-over-lake.jpg", result.WeakString);
+	}
+
+	[TestMethod]
+	public void SanitizeFileNameSkipsLeadingBlankLines()
+	{
+		FileName result = Scan.SanitizeFileName("\nsunset-over-lake\n", ".jpg".As<FileExtension>());
+
+		Assert.AreEqual("sunset-over-lake.jpg", result.WeakString);
+	}
+
+	[TestMethod]
+	public void SanitizeFileNameKeepsDotFollowedByText()
+	{
+		FileName result = Scan.SanitizeFileName("st.-louis-arch-at-dusk", ".jpg".As<FileExtension>());
+
+		Assert.AreEqual("st.-louis-arch-at-dusk.jpg", result.WeakString);
+	}
+
+	[TestMethod]
+	public void SanitizeFileNameKeepsDotInTime()
+	{
+		FileName result = Scan.SanitizeFileName("sunset-at-5.30pm", ".jpg".As<FileExtension>());
+
+		Assert.AreEqual("sunset-at-5.30pm.jpg", result.WeakString);
+	}
+
+	[TestMethod]
+	public void SanitizeFileNameStripsUpperCaseImageExtension()
+	{
+		FileName result = Scan.SanitizeFileName("photo.JPEG", ".png".As<FileExtension>());
+
+		Assert.AreEqual("photo.png", result.WeakString);
+	}
+
+	[TestMethod]
 	public void HashFilesSkipsFilesThatCannotBeRead()
 	{
 		string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());

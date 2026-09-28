@@ -41,20 +41,24 @@ internal static class ImageScanner
 		List<AbsoluteFilePath> imageFiles = [];
 		foreach (string file in Directory.EnumerateFiles(path.WeakString, "*", options))
 		{
-			string ext = Path.GetExtension(file);
-			if (string.IsNullOrEmpty(ext))
-			{
-				continue;
-			}
-
-			// FileExtension compares ordinally, and cameras and Windows tools write .JPG/.PNG,
-			// so fold to the lower-case form the set holds before looking it up.
-			if (ImageExtensions.Contains(ext.ToLowerInvariant().As<FileExtension>()))
+			if (IsImageExtension(Path.GetExtension(file)))
 			{
 				imageFiles.Add(file.As<AbsoluteFilePath>());
 			}
 		}
 
 		return imageFiles;
+	}
+
+	internal static bool IsImageExtension(string extension)
+	{
+		if (string.IsNullOrEmpty(extension))
+		{
+			return false;
+		}
+
+		// FileExtension compares ordinally, and cameras and Windows tools write .JPG/.PNG,
+		// so fold to the lower-case form the set holds before looking it up.
+		return ImageExtensions.Contains(extension.ToLowerInvariant().As<FileExtension>());
 	}
 }
