@@ -32,6 +32,54 @@ public class ImageScannerTests
 	}
 
 	[TestMethod]
+	public void ScanForImagesSkipsUnreadableSubdirectories()
+	{
+		if (OperatingSystem.IsWindows())
+		{
+			Assert.Inconclusive("Unix file modes are used to make the folder unreadable.");
+			return;
+		}
+
+		string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+		string lockedDir = Path.Combine(tempDir, "locked");
+		Directory.CreateDirectory(lockedDir);
+		File.WriteAllBytes(Path.Combine(tempDir, "readable.jpg"), [0xFF, 0xD8]);
+		File.WriteAllBytes(Path.Combine(lockedDir, "hidden.jpg"), [0xFF, 0xD8]);
+		File.SetUnixFileMode(lockedDir, UnixFileMode.None);
+
+		try
+		{
+			if (Directory.Exists(lockedDir) && CanList(lockedDir))
+			{
+				Assert.Inconclusive("Running as a user that can read any folder, such as root.");
+			}
+
+			IReadOnlyList<AbsoluteFilePath> results = ImageScanner.ScanForImages(tempDir.As<AbsoluteDirectoryPath>());
+
+			Assert.AreEqual(1, results.Count);
+			Assert.AreEqual("readable.jpg", Path.GetFileName(results[0].WeakString));
+		}
+		finally
+		{
+			File.SetUnixFileMode(lockedDir, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+			Directory.Delete(tempDir, true);
+		}
+	}
+
+	private static bool CanList(string directory)
+	{
+		try
+		{
+			_ = Directory.GetFiles(directory);
+			return true;
+		}
+		catch (UnauthorizedAccessException)
+		{
+			return false;
+		}
+	}
+
+	[TestMethod]
 	public void ScanForImagesIgnoresNonImageFiles()
 	{
 		string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
