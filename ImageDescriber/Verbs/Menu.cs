@@ -2,7 +2,10 @@
 
 namespace ktsu.ImageDescriber.Verbs;
 
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 
@@ -16,6 +19,59 @@ using DustInTheWind.ConsoleTools.Controls.Menus.MenuItems;
 internal sealed class Menu : BaseVerb<Menu>
 {
 	internal override void Run(Menu options)
+	{
+		Type[] verbs = [.. Program.Verbs.Where(verb => verb != GetType())];
+
+		// ScrollMenu reads Console.CursorVisible, which .NET only supports on Windows
+		if (OperatingSystem.IsWindows())
+		{
+			RunScrollMenu(verbs);
+		}
+		else
+		{
+			RunPromptMenu(Console.In, Console.Out, [.. verbs.Select(verb => (GetMenuText(verb), (Action)(() => CreateVerb(verb).Execute())))]);
+		}
+	}
+
+	internal static void RunPromptMenu(TextReader input, TextWriter output, IReadOnlyList<(string Text, Action Run)> items)
+	{
+		int exitChoice = items.Count + 1;
+
+		while (true)
+		{
+			output.WriteLine();
+			for (int i = 0; i < items.Count; i++)
+			{
+				output.WriteLine($"{i + 1}. {items[i].Text}");
+			}
+
+			output.WriteLine($"{exitChoice}. Exit");
+			output.Write("Choose an option: ");
+
+			string? line = input.ReadLine();
+			if (line is null)
+			{
+				// End of input: nobody is left to choose, so stop rather than prompt forever
+				output.WriteLine();
+				return;
+			}
+
+			if (!int.TryParse(line.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out int choice) || choice < 1 || choice > exitChoice)
+			{
+				output.WriteLine($"Enter a number from 1 to {exitChoice}.");
+				continue;
+			}
+
+			if (choice == exitChoice)
+			{
+				return;
+			}
+
+			items[choice - 1].Run();
+		}
+	}
+
+	private static void RunScrollMenu(Type[] verbs)
 	{
 		bool exitRequested = false;
 
@@ -31,9 +87,7 @@ internal sealed class Menu : BaseVerb<Menu>
 			Control = scrollMenu,
 		};
 
-		LabelMenuItem[] menuItems = [.. Program.Verbs
-			.Where(verb => verb != GetType())
-			.Select(CreateMenuItem)];
+		LabelMenuItem[] menuItems = [.. verbs.Select(CreateMenuItem)];
 
 		scrollMenu.AddItems(menuItems);
 		scrollMenu.AddItem(new LabelMenuItem()
@@ -55,20 +109,24 @@ internal sealed class Menu : BaseVerb<Menu>
 		public void Execute() => action();
 	}
 
-	private static LabelMenuItem CreateMenuItem(Type verbType)
+	private static BaseVerb CreateVerb(Type verbType)
 	{
 		BaseVerb? verb = Activator.CreateInstance(verbType) as BaseVerb;
 		Debug.Assert(verb != null);
+		return verb;
+	}
 
+	private static string GetMenuText(Type verbType)
+	{
 		string name = verbType.Name;
 		string? helpText = verbType.GetCustomAttribute<VerbAttribute>()?.HelpText;
-		string text = string.IsNullOrEmpty(helpText) ? name : $"{name} - {helpText}";
-
-		return new LabelMenuItem()
-		{
-			Text = text,
-			Command = verb,
-			IsEnabled = true,
-		};
+		return string.IsNullOrEmpty(helpText) ? name : $"{name} - {helpText}";
 	}
+
+	private static LabelMenuItem CreateMenuItem(Type verbType) => new()
+	{
+		Text = GetMenuText(verbType),
+		Command = CreateVerb(verbType),
+		IsEnabled = true,
+	};
 }
