@@ -246,18 +246,17 @@ internal sealed class Scan : BaseVerb<Scan>
 
 	internal static FileName SanitizeFileName(string rawSuggestion, FileExtension extension)
 	{
-		string name = rawSuggestion.Trim().Trim('"', '\'', '`');
+		// Take the first line with content, so a name wrapped in a code fence or preceded by a
+		// blank line is kept, and only then trim the quotes and backticks around it
+		string name = rawSuggestion
+			.Split('\n')
+			.Select(line => line.Trim())
+			.FirstOrDefault(line => line.Length > 0 && !IsCodeFence(line)) ?? string.Empty;
+		name = name.Trim('"', '\'', '`').Trim();
 
-		// Take only the first line if the model returned multiple lines
-		int newlineIndex = name.IndexOf('\n', StringComparison.Ordinal);
-		if (newlineIndex >= 0)
-		{
-			name = name[..newlineIndex].Trim();
-		}
-
-		// Strip any extension the model may have included
-		string existingExt = System.IO.Path.GetExtension(name);
-		if (!string.IsNullOrEmpty(existingExt))
+		// Strip an image extension the model may have included. A suggestion normally has no
+		// extension, so any other dot is part of the name ("st.-louis-arch", "sunset-at-5.30pm")
+		if (ImageScanner.IsImageExtension(System.IO.Path.GetExtension(name)))
 		{
 			name = System.IO.Path.GetFileNameWithoutExtension(name);
 		}
@@ -283,4 +282,10 @@ internal sealed class Scan : BaseVerb<Scan>
 
 		return $"{name}{extension}".As<FileName>();
 	}
+
+	// An opening or closing fence ("```" or "```text"), as opposed to a name written inline
+	// between two fences on one line ("```sunset```")
+	private static bool IsCodeFence(string line) =>
+		line.StartsWith("```", StringComparison.Ordinal)
+		&& (line.Length < 6 || !line.EndsWith("```", StringComparison.Ordinal));
 }
