@@ -1,3 +1,7 @@
+## v1.2.1
+
+No significant changes detected since v1.2.1.
+
 ## v1.2.1 (patch)
 
 Changes since v1.2.0:
@@ -28,14 +32,18 @@ Changes since v1.1.0:
 - docs: correct README, DESCRIPTION and TAGS metadata ([@matt-edmondson](https://github.com/matt-edmondson))
 - Stop Update SDKs failing when there is nothing to update ([@matt-edmondson](https://github.com/matt-edmondson))
 - Fix ktsu.Sdk 2.26+ analyzer errors: new one-line copyright header (IDE0073), normalize line endings to LF (IDE0055), PrivateAssets="all" on Polyfill (KTSU0007) [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
+- Sync .github\workflows\dotnet.yml ([@KtsuTools](https://github.com/KtsuTools))
 - Sync .runsettings ([@KtsuTools](https://github.com/KtsuTools))
 - Sync .editorconfig ([@KtsuTools](https://github.com/KtsuTools))
 - Sync .gitattributes ([@KtsuTools](https://github.com/KtsuTools))
 - Sync global.json ([@KtsuTools](https://github.com/KtsuTools))
+- Sync .github\workflows\dotnet.yml ([@KtsuTools](https://github.com/KtsuTools))
+- chore: remove Microsoft.SourceLink.GitHub package version ([@matt-edmondson](https://github.com/matt-edmondson))
 - build: add console tools and JSON converter packages ([@matt-edmondson](https://github.com/matt-edmondson))
 - Add TAGS.md with NuGet package tags ([@matt-edmondson](https://github.com/matt-edmondson))
 - docs: add Stats verb to README ([@matt-edmondson](https://github.com/matt-edmondson))
 - docs: replace placeholder README with usage and command reference ([@matt-edmondson](https://github.com/matt-edmondson))
+- Sync .github\workflows\dotnet.yml ([@KtsuTools](https://github.com/KtsuTools))
 
 ## v1.1.105 (patch)
 
@@ -223,10 +231,12 @@ Changes since v1.1.75:
 Changes since v1.1.74:
 
 - Fix ktsu.Sdk 2.26+ analyzer errors: new one-line copyright header (IDE0073), normalize line endings to LF (IDE0055), PrivateAssets="all" on Polyfill (KTSU0007) [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
+- Sync .github\workflows\dotnet.yml ([@KtsuTools](https://github.com/KtsuTools))
 - Sync .runsettings ([@KtsuTools](https://github.com/KtsuTools))
 - Sync .editorconfig ([@KtsuTools](https://github.com/KtsuTools))
 - Sync .gitattributes ([@KtsuTools](https://github.com/KtsuTools))
 - Sync global.json ([@KtsuTools](https://github.com/KtsuTools))
+- Sync .github\workflows\dotnet.yml ([@KtsuTools](https://github.com/KtsuTools))
 
 ## v1.1.74 (patch)
 
@@ -421,6 +431,7 @@ Changes since v1.1.44:
 
 Changes since v1.1.43:
 
+- chore: remove Microsoft.SourceLink.GitHub package version ([@matt-edmondson](https://github.com/matt-edmondson))
 - build: add console tools and JSON converter packages ([@matt-edmondson](https://github.com/matt-edmondson))
 
 ## v1.1.43 (patch)
@@ -694,13 +705,13 @@ Changes since v1.1.2:
 
 Changes since v1.1.1:
 
-- Bump Polyfill from 9.8.1 to 9.9.0 ([@dependabot[bot]](https://github.com/dependabot[bot]))
-- Bump the ktsu group with 5 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
 - Sync .github\workflows\dotnet.yml ([@KtsuTools](https://github.com/KtsuTools))
 
 ## v1.1.2-pre.1 (prerelease)
 
-No significant changes detected since v1.1.2.
+Changes since v1.1.1:
+
+- Sync .github\workflows\dotnet.yml ([@KtsuTools](https://github.com/KtsuTools))
 
 ## v1.1.1 (patch)
 
@@ -739,7 +750,9 @@ Changes since v1.0.6:
 
 ## v1.0.7-pre.1 (prerelease)
 
-No significant changes detected since v1.0.7.
+Changes since v1.0.6:
+
+- Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
 
 ## v1.0.6 (patch)
 
