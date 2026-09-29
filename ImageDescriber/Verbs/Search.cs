@@ -15,6 +15,25 @@ internal sealed class Search : BaseVerb<Search>
 	[Option('q', "query", Required = true, HelpText = "The search query to find in descriptions.")]
 	public string Query { get; set; } = string.Empty;
 
+	internal override bool ValidateArgs()
+	{
+		// The menu runs verbs without CommandLineParser, which is what enforces Required = true
+		if (string.IsNullOrWhiteSpace(Query))
+		{
+			Console.Write("Enter the search query: ");
+			string? input = Console.ReadLine()?.Trim();
+			if (string.IsNullOrEmpty(input))
+			{
+				Console.WriteLine("No query provided. Aborting.");
+				return false;
+			}
+
+			Query = input;
+		}
+
+		return base.ValidateArgs();
+	}
+
 	internal override void Run(Search options)
 	{
 		if (string.IsNullOrWhiteSpace(options.Query))
