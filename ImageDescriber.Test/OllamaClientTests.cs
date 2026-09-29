@@ -2,6 +2,7 @@
 
 namespace ktsu.ImageDescriber.Tests;
 
+using ktsu.ImageDescriber.Verbs;
 using ktsu.Semantics.Strings;
 
 [TestClass]
@@ -50,4 +51,38 @@ public class OllamaClientTests
 	[DataRow("not a url")]
 	public void IsAvailableReturnsFalseForAnInvalidEndpoint(string endpoint) =>
 		Assert.IsFalse(OllamaClient.IsAvailableAsync(endpoint.As<OllamaEndpoint>()).GetAwaiter().GetResult());
+
+	[TestMethod]
+	public void ConfigureSavesTheNormalizedEndpoint()
+	{
+		using StringWriter output = new();
+
+		OllamaEndpoint chosen = Configure.ChooseEndpoint(" localhost:11434/ ", "http://old:1".As<OllamaEndpoint>(), output);
+
+		Assert.AreEqual("http://localhost:11434", chosen.WeakString);
+		Assert.AreEqual(string.Empty, output.ToString());
+	}
+
+	[TestMethod]
+	[DataRow(null)]
+	[DataRow("   ")]
+	public void ConfigureKeepsTheCurrentEndpointWhenNothingIsTyped(string? input)
+	{
+		using StringWriter output = new();
+
+		OllamaEndpoint chosen = Configure.ChooseEndpoint(input, "http://old:1".As<OllamaEndpoint>(), output);
+
+		Assert.AreEqual("http://old:1", chosen.WeakString);
+	}
+
+	[TestMethod]
+	public void ConfigureKeepsTheCurrentEndpointAndSaysWhyWhenTheInputIsInvalid()
+	{
+		using StringWriter output = new();
+
+		OllamaEndpoint chosen = Configure.ChooseEndpoint("not a url", "http://old:1".As<OllamaEndpoint>(), output);
+
+		Assert.AreEqual("http://old:1", chosen.WeakString);
+		StringAssert.Contains(output.ToString(), "\"not a url\" is not an http or https address. Keeping http://old:1.");
+	}
 }

@@ -31,7 +31,7 @@ internal static class OllamaClient
 			return null;
 		}
 
-		string withScheme = trimmed.Contains("://", StringComparison.Ordinal) ? trimmed : $"http://{trimmed}";
+		string withScheme = trimmed.Contains(Uri.SchemeDelimiter, StringComparison.Ordinal) ? trimmed : $"{Uri.UriSchemeHttp}{Uri.SchemeDelimiter}{trimmed}";
 		if (!Uri.TryCreate(withScheme, UriKind.Absolute, out Uri? uri)
 			|| (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
 			|| string.IsNullOrEmpty(uri.Host)
@@ -70,14 +70,7 @@ internal static class OllamaClient
 		}
 		catch (ArgumentException)
 		{
-			return false;
-		}
-		catch (NotSupportedException)
-		{
-			return false;
-		}
-		catch (InvalidOperationException)
-		{
+			// GetBaseUri rejects anything NormalizeEndpoint can't turn into an http or https address
 			return false;
 		}
 	}

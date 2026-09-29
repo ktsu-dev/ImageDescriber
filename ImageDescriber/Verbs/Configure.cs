@@ -2,6 +2,8 @@
 
 namespace ktsu.ImageDescriber.Verbs;
 
+using System.IO;
+
 using CommandLine;
 
 using ktsu.Semantics.Strings;
@@ -21,18 +23,7 @@ internal sealed class Configure : BaseVerb<Configure>
 
 		Console.Write($"Ollama Endpoint [{Program.Settings.OllamaEndpoint}]: ");
 		string? endpointInput = Console.ReadLine();
-		if (!string.IsNullOrWhiteSpace(endpointInput))
-		{
-			string? endpoint = OllamaClient.NormalizeEndpoint(endpointInput);
-			if (endpoint is null)
-			{
-				Console.WriteLine($"  \"{endpointInput.Trim()}\" is not an http or https address. Keeping {Program.Settings.OllamaEndpoint}.");
-			}
-			else
-			{
-				Program.Settings.OllamaEndpoint = endpoint.As<OllamaEndpoint>();
-			}
-		}
+		Program.Settings.OllamaEndpoint = ChooseEndpoint(endpointInput, Program.Settings.OllamaEndpoint, Console.Out);
 
 		Console.Write($"Ollama Model [{Program.Settings.OllamaModel}]: ");
 		string? modelInput = Console.ReadLine();
@@ -71,5 +62,26 @@ internal sealed class Configure : BaseVerb<Configure>
 		Console.WriteLine($"  Concurrency:     {Program.Settings.MaxConcurrentRequests}");
 		Console.WriteLine($"  Prompt:          {Program.Settings.DescriptionPrompt[..Math.Min(60, Program.Settings.DescriptionPrompt.Length)]}...");
 		Console.WriteLine($"  Filename Prompt: {Program.Settings.SuggestedFileNamePrompt[..Math.Min(60, Program.Settings.SuggestedFileNamePrompt.Length)]}...");
+	}
+
+	/// <summary>
+	/// Returns the normalized endpoint the user typed, or <paramref name="current"/> when they
+	/// typed nothing or something that isn't an http or https address.
+	/// </summary>
+	internal static OllamaEndpoint ChooseEndpoint(string? input, OllamaEndpoint current, TextWriter output)
+	{
+		if (string.IsNullOrWhiteSpace(input))
+		{
+			return current;
+		}
+
+		string? endpoint = OllamaClient.NormalizeEndpoint(input);
+		if (endpoint is null)
+		{
+			output.WriteLine($"  \"{input.Trim()}\" is not an http or https address. Keeping {current}.");
+			return current;
+		}
+
+		return endpoint.As<OllamaEndpoint>();
 	}
 }
