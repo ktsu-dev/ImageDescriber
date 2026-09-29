@@ -74,7 +74,9 @@ internal sealed class Export : BaseVerb<Export>
 
 		foreach (ImageDescription desc in descriptions)
 		{
-			string joinedPaths = string.Join("; ", desc.KnownPaths.Select(p => p.WeakString));
+			// End every path with a line break, which the quoted field keeps and no path contains.
+			// "; " would do as a separator only until a folder name contains it.
+			string joinedPaths = string.Concat(desc.KnownPaths.Select(p => p.WeakString + KnownPathTerminator));
 			string[] fields =
 			[
 				desc.Hash,
@@ -93,6 +95,8 @@ internal sealed class Export : BaseVerb<Export>
 
 		return sb.ToString();
 	}
+
+	internal const char KnownPathTerminator = '\n';
 
 	private static string QuoteCsvField(string value) => $"\"{value.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
 }

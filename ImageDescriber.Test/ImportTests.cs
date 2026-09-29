@@ -245,6 +245,38 @@ public class ImportTests
 	}
 
 	[TestMethod]
+	public void CsvExportThenImportKeepsPathsThatContainTheOldSeparator()
+	{
+		string folder = Path.Combine(Path.GetTempPath(), "Photos", "Smith; Jones wedding");
+		ImageDescription original = new()
+		{
+			Hash = new string('d', 64),
+			SuggestedFileName = "wedding.jpg".As<FileName>(),
+			KnownPaths = [Path.Combine(folder, "IMG_001.jpg").As<AbsoluteFilePath>(), Path.Combine(folder, "IMG_002; copy.jpg").As<AbsoluteFilePath>()],
+			Model = "llava".As<OllamaModelName>(),
+			DescribedAt = new DateTime(2026, 9, 27, 1, 8, 10, DateTimeKind.Utc),
+			FileSizeBytes = 3,
+			Description = "A wedding.",
+		};
+
+		List<ImageDescription> imported = Import.ParseCsv(Export.BuildCsv([original]));
+
+		Assert.HasCount(1, imported);
+		Assert.AreSequenceEqual(original.KnownPaths, imported[0].KnownPaths);
+	}
+
+	[TestMethod]
+	public void SplitKnownPathsReadsBothTheCurrentAndTheLegacyFormat()
+	{
+		string[] expected = ["/a/b.jpg", "/c/d.jpg"];
+
+		Assert.AreSequenceEqual(expected, Import.SplitKnownPaths("/a/b.jpg\n/c/d.jpg\n"));
+		Assert.AreSequenceEqual(expected, Import.SplitKnownPaths("/a/b.jpg\r\n/c/d.jpg\r\n"));
+		Assert.AreSequenceEqual(expected, Import.SplitKnownPaths("/a/b.jpg; /c/d.jpg"));
+		Assert.IsEmpty(Import.SplitKnownPaths(string.Empty));
+	}
+
+	[TestMethod]
 	public void ParseCsvRecordsKeepsLineBreaksInsideQuotedFields()
 	{
 		List<(int LineNumber, List<string> Fields)> records = Import.ParseCsvRecords("h1,h2\r\n\"a\nb\",c\r\n\r\nd,\"e\"\"f\"\n");

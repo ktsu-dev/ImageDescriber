@@ -178,9 +178,7 @@ internal sealed class Import : BaseVerb<Import>
 				// Fields: Hash, SuggestedFileName, KnownPaths, Model, DescribedAt, FileSizeBytes, Description
 				string hash = fields[0];
 				FileName suggestedFileName = fields[1].As<FileName>();
-				List<AbsoluteFilePath> knownPaths = [.. fields[2]
-					.Split("; ", StringSplitOptions.RemoveEmptyEntries)
-					.Select(p => p.As<AbsoluteFilePath>())];
+				List<AbsoluteFilePath> knownPaths = [.. SplitKnownPaths(fields[2]).Select(p => p.As<AbsoluteFilePath>())];
 				OllamaModelName model = fields[3].As<OllamaModelName>();
 				DateTime describedAt = DateTime.Parse(fields[4], CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
 				long fileSizeBytes = long.Parse(fields[5], CultureInfo.InvariantCulture);
@@ -213,6 +211,17 @@ internal sealed class Import : BaseVerb<Import>
 
 		return entries;
 	}
+
+	/// <summary>
+	/// Splits a KnownPaths field. Current exports end every path with a line break; exports
+	/// written before that joined the paths with "; ", so a field without one is read that way.
+	/// </summary>
+	internal static string[] SplitKnownPaths(string field) =>
+		field.Contains(Export.KnownPathTerminator, StringComparison.Ordinal)
+			? [.. field.Split(Export.KnownPathTerminator, StringSplitOptions.RemoveEmptyEntries)
+				.Select(p => p.TrimEnd('\r'))
+				.Where(p => p.Length > 0)]
+			: field.Split("; ", StringSplitOptions.RemoveEmptyEntries);
 
 	internal static List<string> ParseCsvLine(string line) =>
 		ParseCsvRecords(line).Select(r => r.Fields).FirstOrDefault() ?? [];
