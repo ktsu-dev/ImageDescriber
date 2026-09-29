@@ -29,7 +29,7 @@ internal sealed class Menu : BaseVerb<Menu>
 		}
 		else
 		{
-			RunPromptMenu(Console.In, Console.Out, [.. verbs.Select(verb => (GetMenuText(verb), (Action)(() => CreateVerb(verb).Execute())))]);
+			RunPromptMenu(Console.In, Console.Out, [.. verbs.Select(verb => (GetMenuText(verb), CreateVerbAction(verb)))]);
 		}
 	}
 
@@ -109,6 +109,12 @@ internal sealed class Menu : BaseVerb<Menu>
 		public void Execute() => action();
 	}
 
+	/// <summary>
+	/// Returns an action that runs a fresh instance of the verb each time, so a path or query
+	/// entered for one run is asked for again on the next rather than silently reused.
+	/// </summary>
+	internal static Action CreateVerbAction(Type verbType) => () => CreateVerb(verbType).Execute();
+
 	private static BaseVerb CreateVerb(Type verbType)
 	{
 		BaseVerb? verb = Activator.CreateInstance(verbType) as BaseVerb;
@@ -126,7 +132,7 @@ internal sealed class Menu : BaseVerb<Menu>
 	private static LabelMenuItem CreateMenuItem(Type verbType) => new()
 	{
 		Text = GetMenuText(verbType),
-		Command = CreateVerb(verbType),
+		Command = new ActionCommand(CreateVerbAction(verbType)),
 		IsEnabled = true,
 	};
 }

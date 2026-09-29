@@ -29,6 +29,25 @@ internal sealed class Export : BaseVerb<Export>
 	[Option('o', "output", Required = true, HelpText = "Output file path (.json or .csv).")]
 	public string OutputPath { get; set; } = string.Empty;
 
+	internal override bool ValidateArgs()
+	{
+		// The menu runs verbs without CommandLineParser, which is what enforces Required = true
+		if (string.IsNullOrWhiteSpace(OutputPath))
+		{
+			Console.Write("Enter the output file path (.json or .csv): ");
+			string? input = Console.ReadLine()?.Trim();
+			if (string.IsNullOrEmpty(input))
+			{
+				Console.WriteLine("No path provided. Aborting.");
+				return false;
+			}
+
+			OutputPath = input;
+		}
+
+		return base.ValidateArgs();
+	}
+
 	internal override void Run(Export options)
 	{
 		Dictionary<string, ImageDescription> descriptions = Program.Settings.Descriptions;

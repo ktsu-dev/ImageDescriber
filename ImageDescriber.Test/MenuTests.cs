@@ -3,6 +3,8 @@
 namespace ktsu.ImageDescriber.Tests;
 
 using ktsu.ImageDescriber.Verbs;
+using ktsu.Semantics.Paths;
+using ktsu.Semantics.Strings;
 
 [TestClass]
 public class MenuTests
@@ -86,5 +88,96 @@ public class MenuTests
 		Menu.RunPromptMenu(input, output, items);
 
 		Assert.AreEqual("Only", string.Join(",", ran));
+	}
+
+	[TestMethod]
+	public void ExportRunWithoutAnOutputPathAsksForOne()
+	{
+		string outputFile = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.json");
+		try
+		{
+			string text = RunWithConsole(new Export(), $"{outputFile}\n");
+
+			StringAssert.Contains(text, "Enter the output file path");
+			Assert.IsTrue(File.Exists(outputFile));
+			StringAssert.Contains(File.ReadAllText(outputFile), "A dog on a beach.");
+		}
+		finally
+		{
+			File.Delete(outputFile);
+		}
+	}
+
+	[TestMethod]
+	public void ExportRunWithAnEmptyAnswerAbortsCleanly()
+	{
+		string text = RunWithConsole(new Export(), "\n");
+
+		StringAssert.Contains(text, "No path provided. Aborting.");
+	}
+
+	[TestMethod]
+	public void SearchRunWithoutAQueryAsksForOne()
+	{
+		string text = RunWithConsole(new Search(), "dog\n");
+
+		StringAssert.Contains(text, "Enter the search query");
+		StringAssert.Contains(text, "Search results for \"dog\": 1 match(es)");
+	}
+
+	[TestMethod]
+	public void MenuItemsAskAgainOnEveryRun()
+	{
+		Action search = Menu.CreateVerbAction(typeof(Search));
+
+		string text = RunWithConsole(search, "dog\ncat\n");
+
+		StringAssert.Contains(text, "Search results for \"dog\": 1 match(es)");
+		StringAssert.Contains(text, "Search results for \"cat\": 0 match(es)");
+	}
+
+	private static string RunWithConsole(BaseVerb verb, string input) => RunWithConsole(verb.Run, input);
+
+	/// <summary>
+	/// Runs <paramref name="run"/> as many times as <paramref name="input"/> has lines, against a
+	/// database holding one description, with the console redirected.
+	/// </summary>
+	private static string RunWithConsole(Action run, string input)
+	{
+		PersistentState originalSettings = Program.Settings;
+		TextReader originalIn = Console.In;
+		TextWriter originalOut = Console.Out;
+		using StringReader reader = new(input);
+		using StringWriter output = new();
+		try
+		{
+			Program.Settings = new PersistentState();
+			Program.Settings.Descriptions[new string('a', 64)] = new ImageDescription
+			{
+				Hash = new string('a', 64),
+				SuggestedFileName = "dog-on-beach.jpg".As<FileName>(),
+				KnownPaths = [Path.Combine(Path.GetTempPath(), "a.jpg").As<AbsoluteFilePath>()],
+				Model = "llava".As<OllamaModelName>(),
+				DescribedAt = new DateTime(2026, 9, 27, 1, 7, 46, DateTimeKind.Utc),
+				FileSizeBytes = 1,
+				Description = "A dog on a beach.",
+			};
+			Console.SetIn(reader);
+			Console.SetOut(output);
+
+			int runs = input.Count(c => c == '\n');
+			for (int i = 0; i < runs; i++)
+			{
+				run();
+			}
+		}
+		finally
+		{
+			Console.SetIn(originalIn);
+			Console.SetOut(originalOut);
+			Program.Settings = originalSettings;
+		}
+
+		return output.ToString();
 	}
 }
