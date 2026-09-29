@@ -246,6 +246,29 @@ public class ScanTests
 		Assert.Contains("Scan complete.", text);
 	}
 
+	[TestMethod]
+	public void ScanReportsAnInvalidEndpointInsteadOfCrashing()
+	{
+		PersistentState originalSettings = Program.Settings;
+		TextWriter originalOut = Console.Out;
+		using StringWriter output = new();
+		try
+		{
+			Program.Settings = new PersistentState();
+			Console.SetOut(output);
+
+			Scan scan = new() { PathString = Path.GetTempPath(), EndpointString = "not a url", ModelString = "test-model" };
+			scan.Run(scan);
+		}
+		finally
+		{
+			Console.SetOut(originalOut);
+			Program.Settings = originalSettings;
+		}
+
+		Assert.Contains("Error: Invalid Ollama endpoint \"not a url\"", output.ToString());
+	}
+
 	/// <summary>
 	/// Serves /api/generate like Ollama, except that a request mentioning bad.jpg gets an HTML
 	/// page, as a proxy or the wrong service on the endpoint would return.

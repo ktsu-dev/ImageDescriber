@@ -24,7 +24,14 @@ internal abstract class BaseVerb : ICommand
 
 	internal AbsoluteDirectoryPath Path => System.IO.Path.GetFullPath(PathString).As<AbsoluteDirectoryPath>();
 
-	internal OllamaEndpoint Endpoint => string.IsNullOrEmpty(EndpointString) ? Program.Settings.OllamaEndpoint : EndpointString.As<OllamaEndpoint>();
+	internal OllamaEndpoint Endpoint
+	{
+		get
+		{
+			string value = string.IsNullOrEmpty(EndpointString) ? Program.Settings.OllamaEndpoint.WeakString : EndpointString;
+			return (OllamaClient.NormalizeEndpoint(value) ?? value).As<OllamaEndpoint>();
+		}
+	}
 
 	internal OllamaModelName Model => string.IsNullOrEmpty(ModelString) ? Program.Settings.OllamaModel : ModelString.As<OllamaModelName>();
 

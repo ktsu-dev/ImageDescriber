@@ -43,6 +43,12 @@ internal sealed class Scan : BaseVerb<Scan>
 		Console.WriteLine($"Model: {options.Model}");
 		Console.WriteLine();
 
+		if (OllamaClient.NormalizeEndpoint(options.Endpoint.WeakString) is null)
+		{
+			Console.WriteLine($"Error: Invalid Ollama endpoint \"{options.Endpoint}\". Expected an http or https address such as http://localhost:11434.");
+			return;
+		}
+
 		// Step 1: Check Ollama availability
 		Console.WriteLine("Checking Ollama availability...");
 		bool isAvailable = OllamaClient.IsAvailableAsync(options.Endpoint).GetAwaiter().GetResult();
