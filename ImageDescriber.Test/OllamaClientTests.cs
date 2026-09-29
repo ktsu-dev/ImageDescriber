@@ -83,6 +83,6 @@ public class OllamaClientTests
 		OllamaEndpoint chosen = Configure.ChooseEndpoint("not a url", "http://old:1".As<OllamaEndpoint>(), output);
 
 		Assert.AreEqual("http://old:1", chosen.WeakString);
-		StringAssert.Contains(output.ToString(), "\"not a url\" is not an http or https address. Keeping http://old:1.");
+		Assert.Contains("\"not a url\" is not an http or https address. Keeping http://old:1.", output.ToString());
 	}
 }
