@@ -98,9 +98,9 @@ public class MenuTests
 		{
 			string text = RunWithConsole(new Export(), $"{outputFile}\n");
 
-			StringAssert.Contains(text, "Enter the output file path");
+			Assert.Contains("Enter the output file path", text);
 			Assert.IsTrue(File.Exists(outputFile));
-			StringAssert.Contains(File.ReadAllText(outputFile), "A dog on a beach.");
+			Assert.Contains("A dog on a beach.", File.ReadAllText(outputFile));
 		}
 		finally
 		{
@@ -113,7 +113,7 @@ public class MenuTests
 	{
 		string text = RunWithConsole(new Export(), "\n");
 
-		StringAssert.Contains(text, "No path provided. Aborting.");
+		Assert.Contains("No path provided. Aborting.", text);
 	}
 
 	[TestMethod]
@@ -121,8 +121,8 @@ public class MenuTests
 	{
 		string text = RunWithConsole(new Search(), "dog\n");
 
-		StringAssert.Contains(text, "Enter the search query");
-		StringAssert.Contains(text, "Search results for \"dog\": 1 match(es)");
+		Assert.Contains("Enter the search query", text);
+		Assert.Contains("Search results for \"dog\": 1 match(es)", text);
 	}
 
 	[TestMethod]
@@ -132,8 +132,8 @@ public class MenuTests
 
 		string text = RunWithConsole(search, "dog\ncat\n");
 
-		StringAssert.Contains(text, "Search results for \"dog\": 1 match(es)");
-		StringAssert.Contains(text, "Search results for \"cat\": 0 match(es)");
+		Assert.Contains("Search results for \"dog\": 1 match(es)", text);
+		Assert.Contains("Search results for \"cat\": 0 match(es)", text);
 	}
 
 	private static string RunWithConsole(BaseVerb verb, string input) => RunWithConsole(verb.Run, input);
