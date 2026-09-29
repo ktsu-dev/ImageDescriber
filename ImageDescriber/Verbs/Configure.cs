@@ -23,7 +23,15 @@ internal sealed class Configure : BaseVerb<Configure>
 		string? endpointInput = Console.ReadLine();
 		if (!string.IsNullOrWhiteSpace(endpointInput))
 		{
-			Program.Settings.OllamaEndpoint = endpointInput.Trim().As<OllamaEndpoint>();
+			string? endpoint = OllamaClient.NormalizeEndpoint(endpointInput);
+			if (endpoint is null)
+			{
+				Console.WriteLine($"  \"{endpointInput.Trim()}\" is not an http or https address. Keeping {Program.Settings.OllamaEndpoint}.");
+			}
+			else
+			{
+				Program.Settings.OllamaEndpoint = endpoint.As<OllamaEndpoint>();
+			}
 		}
 
 		Console.Write($"Ollama Model [{Program.Settings.OllamaModel}]: ");
