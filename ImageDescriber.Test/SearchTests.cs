@@ -56,6 +56,57 @@ public class SearchTests
 	}
 
 	[TestMethod]
+	public void MergeEntriesStoresAnUpperCaseHashAsTheLowerCaseHashScanLooksUp()
+	{
+		Program.Settings = new PersistentState();
+		string lowerHash = new('a', ImageHasher.HashLength);
+		string upperHash = lowerHash.ToUpperInvariant();
+		AbsoluteFilePath firstPath = Path.Combine(Path.GetTempPath(), "first.jpg").As<AbsoluteFilePath>();
+		AbsoluteFilePath secondPath = Path.Combine(Path.GetTempPath(), "second.jpg").As<AbsoluteFilePath>();
+
+		(int NewCount, int UpdatedCount, int SkippedCount) first = default;
+		(int NewCount, int UpdatedCount, int SkippedCount) second = default;
+		CaptureConsole(() => first = Import.MergeEntries([new() { Hash = upperHash, KnownPaths = [firstPath] }]));
+		CaptureConsole(() => second = Import.MergeEntries([new() { Hash = lowerHash, KnownPaths = [secondPath] }]));
+
+		Assert.AreEqual(1, first.NewCount);
+		Assert.AreEqual(1, second.UpdatedCount);
+		string[] expectedKeys = [lowerHash];
+		CollectionAssert.AreEquivalent(expectedKeys, Program.Settings.Descriptions.Keys.ToArray());
+		Assert.AreEqual(lowerHash, Program.Settings.Descriptions[lowerHash].Hash);
+		Assert.AreEqual(2, Program.Settings.Descriptions[lowerHash].KnownPaths.Count);
+	}
+
+	[TestMethod]
+	public void MergeEntriesRepairsNullFieldsSoSearchStatsAndExportStillRun()
+	{
+		Program.Settings = new PersistentState();
+		string hash = new('b', ImageHasher.HashLength);
+		List<ImageDescription> entries =
+		[
+			new()
+			{
+				Hash = hash,
+				Description = null!,
+				KnownPaths = null!,
+				SuggestedFileName = null!,
+				Model = null!,
+			},
+		];
+
+		CaptureConsole(() => Import.MergeEntries(entries));
+
+		ImageDescription stored = Program.Settings.Descriptions[hash];
+		Assert.IsNotNull(stored.Description);
+		Assert.IsNotNull(stored.KnownPaths);
+		Assert.IsNotNull(stored.SuggestedFileName);
+		Assert.IsNotNull(stored.Model);
+		CaptureConsole(() => new Search().Run(new Search { Query = "dog" }));
+		CaptureConsole(() => new Stats().Run(new Stats()));
+		StringAssert.Contains(Export.BuildCsv(Program.Settings.Descriptions.Values), hash);
+	}
+
+	[TestMethod]
 	public void IsValidHashAcceptsOnlySha256HexStrings()
 	{
 		Assert.IsTrue(ImageHasher.IsValidHash(new string('0', 64)));
