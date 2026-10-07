@@ -51,12 +51,14 @@ internal sealed class Import : BaseVerb<Import>
 		if (!File.Exists(inputFile.WeakString))
 		{
 			Console.WriteLine($"File not found: {inputFile}");
+			Failed = true;
 			return;
 		}
 
 		List<ImageDescription>? entries = LoadEntries(inputFile);
 		if (entries is null)
 		{
+			Failed = true;
 			return;
 		}
 

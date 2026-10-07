@@ -46,6 +46,7 @@ internal sealed class Scan : BaseVerb<Scan>
 		if (OllamaClient.NormalizeEndpoint(options.Endpoint.WeakString) is null)
 		{
 			Console.WriteLine($"Error: Invalid Ollama endpoint \"{options.Endpoint}\". Expected an http or https address such as http://localhost:11434.");
+			Failed = true;
 			return;
 		}
 
@@ -56,6 +57,7 @@ internal sealed class Scan : BaseVerb<Scan>
 		{
 			Console.WriteLine($"Error: Ollama is not available at {options.Endpoint}");
 			Console.WriteLine("Make sure Ollama is running and the endpoint is correct.");
+			Failed = true;
 			return;
 		}
 
@@ -150,6 +152,7 @@ internal sealed class Scan : BaseVerb<Scan>
 			});
 
 		PrintFailureSummary(failures);
+		Failed = failures.Count > 0;
 
 		Console.WriteLine();
 		Console.WriteLine("Scan complete.");

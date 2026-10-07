@@ -22,6 +22,9 @@ internal abstract class BaseVerb : ICommand
 
 	public abstract bool IsActive { get; }
 
+	/// <summary>Whether the last run failed, which makes the process exit non-zero.</summary>
+	internal bool Failed { get; set; }
+
 	internal AbsoluteDirectoryPath Path => System.IO.Path.GetFullPath(PathString).As<AbsoluteDirectoryPath>();
 
 	internal OllamaEndpoint Endpoint
@@ -49,8 +52,10 @@ internal abstract class BaseVerb<T> : BaseVerb where T : BaseVerb<T>
 
 	public override void Run()
 	{
+		Failed = false;
 		if (!ValidateArgs())
 		{
+			Failed = true;
 			return;
 		}
 
