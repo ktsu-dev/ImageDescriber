@@ -1,6 +1,4 @@
-## v1.2.4 (patch)
+## v1.2.4
 
-Changes since v1.2.3:
-
-- Normalize imported hashes to lower case and default their null fields [patch] ([@Claude](https://github.com/Claude))
+No significant changes detected since v1.2.4.
 
