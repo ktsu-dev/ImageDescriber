@@ -108,6 +108,11 @@ internal sealed class Import : BaseVerb<Import>
 				continue;
 			}
 
+			// Scan looks hashes up as ComputeHash spells them, lower-case, and the store is keyed
+			// case-sensitively, so an upper-case hash from another tool would never match.
+			entry.Hash = entry.Hash.ToLowerInvariant();
+			RepairNullFields(entry);
+
 			if (Program.Settings.Descriptions.TryGetValue(entry.Hash, out ImageDescription? existing))
 			{
 				if (MergeKnownPaths(entry, existing))
@@ -127,6 +132,18 @@ internal sealed class Import : BaseVerb<Import>
 		}
 
 		return (newCount, updatedCount, skippedCount);
+	}
+
+	/// <summary>
+	/// Defaults the fields a JSON import can set to null. Search, Stats, Export and Scan all
+	/// dereference them, so a stored null would make each of them throw on every later run.
+	/// </summary>
+	internal static void RepairNullFields(ImageDescription entry)
+	{
+		entry.KnownPaths = entry.KnownPaths is null ? [] : [.. entry.KnownPaths.Where(p => p is not null)];
+		entry.Description ??= string.Empty;
+		entry.SuggestedFileName ??= string.Empty.As<FileName>();
+		entry.Model ??= string.Empty.As<OllamaModelName>();
 	}
 
 	internal static bool MergeKnownPaths(ImageDescription source, ImageDescription target)
