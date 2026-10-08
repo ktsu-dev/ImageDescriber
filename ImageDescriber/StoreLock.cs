@@ -21,7 +21,7 @@ internal sealed class StoreLock : IDisposable
 	/// <summary>
 	/// The file a run that writes to the store locks, kept beside the store itself.
 	/// </summary>
-	internal static string StorePath { get; set; } = Path.Combine(AppData.Path.WeakString, "ImageDescriber.lock");
+	internal static string StorePath { get; set; } = Path.Join(AppData.Path.WeakString, "ImageDescriber.lock");
 
 	private readonly FileStream stream;
 
