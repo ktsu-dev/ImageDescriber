@@ -1,6 +1,6 @@
-## v1.2.4-pre.5 (prerelease)
+## v1.2.4 (patch)
 
-Changes since v1.2.4-pre.4:
+Changes since v1.2.3:
 
-- Bump the ktsu group with 4 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Normalize imported hashes to lower case and default their null fields [patch] ([@Claude](https://github.com/Claude))
 
