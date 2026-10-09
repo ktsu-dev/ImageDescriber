@@ -267,11 +267,10 @@ internal sealed class Scan : BaseVerb<Scan>
 			name = System.IO.Path.GetFileNameWithoutExtension(name);
 		}
 
-		// Remove invalid filename characters
-		foreach (char c in System.IO.Path.GetInvalidFileNameChars())
-		{
-			name = name.Replace(c, '-');
-		}
+		// Remove characters Windows rejects. Path.GetInvalidFileNameChars() is only "\0" and "/" on
+		// Linux and macOS, and a suggestion is stored once per hash and meant for renaming, so a name
+		// suggested there has to be legal on Windows, NTFS, SMB and exFAT as well
+		name = string.Concat(name.Select(c => IsPortableFileNameChar(c) ? c : '-'));
 
 		// Collapse multiple hyphens and trim
 		while (name.Contains("--", StringComparison.Ordinal))
@@ -286,8 +285,25 @@ internal sealed class Scan : BaseVerb<Scan>
 			name = "unnamed";
 		}
 
+		// Windows refuses a device name as a file name whatever extension follows it ("con.jpg")
+		if (WindowsReservedNames.Contains(name))
+		{
+			name = $"{name}-image";
+		}
+
 		return $"{name}{extension}".As<FileName>();
 	}
+
+	private static readonly HashSet<string> WindowsReservedNames = new(
+		[
+			"CON", "PRN", "AUX", "NUL",
+			"COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+			"LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+		],
+		StringComparer.OrdinalIgnoreCase);
+
+	private static bool IsPortableFileNameChar(char c) =>
+		c is >= ' ' and not ('<' or '>' or ':' or '"' or '/' or '\\' or '|' or '?' or '*');
 
 	// An opening or closing fence ("```" or "```text"), as opposed to a name written inline
 	// between two fences on one line ("```sunset```")

@@ -88,6 +88,44 @@ public class ScanTests
 	}
 
 	[TestMethod]
+	public void SanitizeFileNameReplacesCharactersWindowsRejectsOnEveryPlatform()
+	{
+		// Path.GetInvalidFileNameChars() is only "\0" and "/" on Linux and macOS, so this used to
+		// come back unchanged there and produce a name Windows cannot hold
+		FileName result = Scan.SanitizeFileName("sunset at 5:30pm? <draft>", ".jpg".As<FileExtension>());
+
+		Assert.AreEqual("sunset at 5-30pm- -draft.jpg", result.WeakString);
+	}
+
+	[TestMethod]
+	public void SanitizeFileNameReplacesEveryWindowsReservedCharacterAndControlCharacter()
+	{
+		FileName result = Scan.SanitizeFileName("a<b>c:d\"e|f?g*h\\i\tj\u0001k", ".jpg".As<FileExtension>());
+
+		Assert.AreEqual("a-b-c-d-e-f-g-h-i-j-k.jpg", result.WeakString);
+	}
+
+	[TestMethod]
+	[DataRow("con")]
+	[DataRow("NUL")]
+	[DataRow("Com1")]
+	[DataRow("lpt9")]
+	public void SanitizeFileNameAvoidsWindowsDeviceNames(string suggestion)
+	{
+		FileName result = Scan.SanitizeFileName(suggestion, ".jpg".As<FileExtension>());
+
+		Assert.AreEqual($"{suggestion}-image.jpg", result.WeakString);
+	}
+
+	[TestMethod]
+	public void SanitizeFileNameKeepsNamesThatOnlyStartWithADeviceName()
+	{
+		FileName result = Scan.SanitizeFileName("console-on-desk", ".jpg".As<FileExtension>());
+
+		Assert.AreEqual("console-on-desk.jpg", result.WeakString);
+	}
+
+	[TestMethod]
 	public void SanitizeFileNameTakesNameFromInsideCodeFence()
 	{
 		FileName result = Scan.SanitizeFileName("```\nsunset-over-lake\n```", ".jpg".As<FileExtension>());
