@@ -182,6 +182,45 @@ public class ScanTests
 	}
 
 	[TestMethod]
+	[DataRow("sunset-over-the-lake.", "sunset-over-the-lake.jpg")]
+	[DataRow("Sunset over the lake.", "Sunset over the lake.jpg")]
+	[DataRow("sunset-over-the-lake. ", "sunset-over-the-lake.jpg")]
+	[DataRow("\"sunset-over-the-lake.\"", "sunset-over-the-lake.jpg")]
+	public void SanitizeFileNameDropsTrailingPeriod(string suggestion, string expected)
+	{
+		FileName result = Scan.SanitizeFileName(suggestion, ".jpg".As<FileExtension>());
+
+		Assert.AreEqual(expected, result.WeakString);
+	}
+
+	[TestMethod]
+	public void SanitizeFileNameStripsImageExtensionFollowedByPeriod()
+	{
+		FileName result = Scan.SanitizeFileName("photo.jpg.", ".png".As<FileExtension>());
+
+		Assert.AreEqual("photo.png", result.WeakString);
+	}
+
+	[TestMethod]
+	[DataRow("...")]
+	[DataRow(". . .")]
+	[DataRow("-.-")]
+	public void SanitizeFileNameReturnsUnnamedForOnlyPeriods(string suggestion)
+	{
+		FileName result = Scan.SanitizeFileName(suggestion, ".jpg".As<FileExtension>());
+
+		Assert.AreEqual("unnamed.jpg", result.WeakString);
+	}
+
+	[TestMethod]
+	public void SanitizeFileNameDropsPeriodLeftBeforeTrimmedHyphen()
+	{
+		FileName result = Scan.SanitizeFileName("sunset.-", ".jpg".As<FileExtension>());
+
+		Assert.AreEqual("sunset.jpg", result.WeakString);
+	}
+
+	[TestMethod]
 	public void HashFilesSkipsFilesThatCannotBeRead()
 	{
 		string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
