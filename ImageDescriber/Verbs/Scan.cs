@@ -263,7 +263,9 @@ internal sealed class Scan : BaseVerb<Scan>
 			.Split('\n')
 			.Select(line => line.Trim())
 			.FirstOrDefault(line => line.Length > 0 && !IsCodeFence(line)) ?? string.Empty;
-		name = name.Trim('"', '\'', '`').Trim();
+		// Models often end the answer with a full stop. Drop it before the extension check, so
+		// "photo.jpg." still loses its extension and "sunset." does not become "sunset..jpg"
+		name = name.Trim('"', '\'', '`').Trim().TrimEnd('.', ' ');
 
 		// Strip an image extension the model may have included. A suggestion normally has no
 		// extension, so any other dot is part of the name ("st.-louis-arch", "sunset-at-5.30pm")
@@ -283,7 +285,7 @@ internal sealed class Scan : BaseVerb<Scan>
 			name = name.Replace("--", "-", StringComparison.Ordinal);
 		}
 
-		name = name.Trim('-', ' ');
+		name = name.Trim('-', ' ', '.');
 
 		if (string.IsNullOrEmpty(name))
 		{
