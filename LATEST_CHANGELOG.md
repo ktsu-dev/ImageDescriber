@@ -1,6 +1,7 @@
-## v1.2.7 (patch)
+## v1.2.8 (patch)
 
-Changes since v1.2.6:
+Changes since v1.2.7:
 
-- Suggest file names Windows accepts on every platform [patch] ([@Claude](https://github.com/Claude))
+- Use a test input that is a legal extension on Windows too ([@Claude](https://github.com/Claude))
+- Drop a trailing period from a suggested file name [patch] ([@Claude](https://github.com/Claude))
 
