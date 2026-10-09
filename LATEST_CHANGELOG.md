@@ -1,7 +1,7 @@
-## v1.2.5 (patch)
+## v1.2.6 (patch)
 
-Changes since v1.2.4:
+Changes since v1.2.5:
 
-- Cover the remaining failure exits in ProgramTests ([@Claude](https://github.com/Claude))
-- Exit non-zero when arguments do not parse or a verb fails [patch] ([@Claude](https://github.com/Claude))
+- Join the lock path instead of combining it ([@Claude](https://github.com/Claude))
+- Lock the description store while a run writes to it [patch] ([@Claude](https://github.com/Claude))
 
