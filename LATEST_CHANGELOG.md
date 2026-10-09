@@ -1,7 +1,6 @@
-## v1.2.6 (patch)
+## v1.2.7 (patch)
 
-Changes since v1.2.5:
+Changes since v1.2.6:
 
-- Join the lock path instead of combining it ([@Claude](https://github.com/Claude))
-- Lock the description store while a run writes to it [patch] ([@Claude](https://github.com/Claude))
+- Suggest file names Windows accepts on every platform [patch] ([@Claude](https://github.com/Claude))
 
