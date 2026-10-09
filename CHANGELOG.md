@@ -1,6 +1,9 @@
-## v1.2.4
+## v1.2.5 (patch)
 
-No significant changes detected since v1.2.4.
+Changes since v1.2.4:
+
+- Cover the remaining failure exits in ProgramTests ([@Claude](https://github.com/Claude))
+- Exit non-zero when arguments do not parse or a verb fails [patch] ([@Claude](https://github.com/Claude))
 
 ## v1.2.4 (patch)
 
