@@ -7,8 +7,8 @@
     <PackageVersion Include="ConsoleTools" Version="1.2.1" />
     <PackageVersion Include="ktsu.AppDataStorage" Version="1.18.1" />
     <PackageVersion Include="ktsu.Extensions" Version="1.9.2" />
-    <PackageVersion Include="ktsu.Semantics.Strings" Version="5.11.2" />
-    <PackageVersion Include="ktsu.Semantics.Paths" Version="5.11.2" />
+    <PackageVersion Include="ktsu.Semantics.Strings" Version="5.11.3" />
+    <PackageVersion Include="ktsu.Semantics.Paths" Version="5.11.3" />
     <PackageVersion Include="Polyfill" Version="11.4.3" />
     <PackageVersion Include="ConsoleTools.Controls" Version="1.2.1" />
     <PackageVersion Include="ConsoleTools.Controls.Menus" Version="1.2.1" />
