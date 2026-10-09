@@ -213,9 +213,9 @@ public class ScanTests
 	}
 
 	[TestMethod]
-	public void SanitizeFileNameDropsPeriodLeftBeforeReplacedCharacter()
+	public void SanitizeFileNameDropsPeriodLeftBeforeTrimmedHyphen()
 	{
-		FileName result = Scan.SanitizeFileName("sunset.?", ".jpg".As<FileExtension>());
+		FileName result = Scan.SanitizeFileName("sunset.-", ".jpg".As<FileExtension>());
 
 		Assert.AreEqual("sunset.jpg", result.WeakString);
 	}
