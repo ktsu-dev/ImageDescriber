@@ -42,6 +42,11 @@ internal abstract class BaseVerb : ICommand
 
 	internal virtual bool ValidateArgs() => true;
 
+	/// <summary>
+	/// Whether the verb saves the store, and so has to hold <see cref="StoreLock"/> while it runs.
+	/// </summary>
+	internal virtual bool WritesStore => false;
+
 	public void Execute() => Run();
 }
 
@@ -60,8 +65,32 @@ internal abstract class BaseVerb<T> : BaseVerb where T : BaseVerb<T>
 		}
 
 		isActive = false;
-		Run((T)this);
+
+		if (WritesStore)
+		{
+			RunHoldingStoreLock();
+		}
+		else
+		{
+			Run((T)this);
+		}
+
 		isActive = true;
+	}
+
+	private void RunHoldingStoreLock()
+	{
+		using StoreLock? storeLock = StoreLock.TryAcquire(StoreLock.StorePath);
+		if (storeLock is null)
+		{
+			Console.WriteLine(StoreLock.BusyMessage);
+			return;
+		}
+
+		// Another run may have saved since this process loaded the store, and this run's saves
+		// write back the whole copy, so start from what is on disk now.
+		Program.Settings = PersistentState.LoadOrCreate();
+		Run((T)this);
 	}
 
 	internal abstract void Run(T options);

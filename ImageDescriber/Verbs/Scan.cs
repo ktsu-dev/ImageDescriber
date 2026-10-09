@@ -18,6 +18,8 @@ using ktsu.Semantics.Strings;
 [Verb("Scan", HelpText = "Scan a directory for images, describe them using Ollama, and store results.")]
 internal sealed class Scan : BaseVerb<Scan>
 {
+	internal override bool WritesStore => true;
+
 	internal override bool ValidateArgs()
 	{
 		if (PathString is "." or "")

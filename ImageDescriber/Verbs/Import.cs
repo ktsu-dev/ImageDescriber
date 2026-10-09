@@ -18,6 +18,8 @@ using ktsu.Semantics.Strings;
 [Verb("Import", HelpText = "Import descriptions from a JSON or CSV file.")]
 internal sealed class Import : BaseVerb<Import>
 {
+	internal override bool WritesStore => true;
+
 	private static readonly JsonSerializerOptions JsonOptions = new()
 	{
 		Converters = { new RoundTripStringJsonConverterFactory() },

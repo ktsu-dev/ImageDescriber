@@ -11,6 +11,8 @@ using ktsu.Semantics.Strings;
 [Verb("Configure", HelpText = "Configure the Ollama endpoint and model settings.")]
 internal sealed class Configure : BaseVerb<Configure>
 {
+	internal override bool WritesStore => true;
+
 	internal override void Run(Configure options)
 	{
 		Console.WriteLine("Current Settings:");
