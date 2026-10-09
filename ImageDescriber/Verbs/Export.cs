@@ -70,6 +70,7 @@ internal sealed class Export : BaseVerb<Export>
 				break;
 			default:
 				Console.WriteLine("Error: Output file must have .json or .csv extension.");
+				Failed = true;
 				return;
 		}
 

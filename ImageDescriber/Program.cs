@@ -18,13 +18,29 @@ internal static class Program
 	internal static Type[] Verbs { get; } = LoadVerbs();
 	internal static PersistentState Settings { get; set; } = new();
 
-	private static void Main(string[] args)
+	private static int Main(string[] args)
 	{
 		Console.OutputEncoding = Encoding.UTF8;
 		Settings = PersistentState.LoadOrCreate();
 
+		return Run(args);
+	}
+
+	/// <summary>
+	/// Runs the verb named by <paramref name="args"/> and returns the process exit code: 1 when the
+	/// arguments do not parse or the verb reports a failure, so scripts and CI can detect either.
+	/// </summary>
+	internal static int Run(string[] args)
+	{
+		int exitCode = 0;
 		_ = Parser.Default.ParseArguments(args, Verbs)
-			.WithParsed<BaseVerb>(task => task.Run());
+			.WithParsed<BaseVerb>(task =>
+			{
+				task.Run();
+				exitCode = task.Failed ? 1 : 0;
+			})
+			.WithNotParsed(errors => exitCode = errors.IsHelp() || errors.IsVersion() ? 0 : 1);
+		return exitCode;
 	}
 
 	private static Type[] LoadVerbs() => [.. Assembly.GetExecutingAssembly().GetTypes().Where(t => t.GetCustomAttribute<VerbAttribute>() != null)];

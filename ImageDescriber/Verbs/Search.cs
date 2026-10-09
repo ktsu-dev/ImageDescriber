@@ -39,6 +39,7 @@ internal sealed class Search : BaseVerb<Search>
 		if (string.IsNullOrWhiteSpace(options.Query))
 		{
 			Console.WriteLine("Error: Search query cannot be empty.");
+			Failed = true;
 			return;
 		}
 
