@@ -15,6 +15,12 @@ internal sealed class Configure : BaseVerb<Configure>
 
 	internal override void Run(Configure options)
 	{
+		if (!TryApplyCommandLineOptions(options))
+		{
+			Failed = true;
+			return;
+		}
+
 		Console.WriteLine("Current Settings:");
 		Console.WriteLine($"  Endpoint:        {Program.Settings.OllamaEndpoint}");
 		Console.WriteLine($"  Model:           {Program.Settings.OllamaModel}");
@@ -85,5 +91,29 @@ internal sealed class Configure : BaseVerb<Configure>
 		}
 
 		return endpoint.As<OllamaEndpoint>();
+	}
+	/// <summary>
+	/// Applies explicitly supplied command-line settings before interactive prompts.
+	/// </summary>
+	internal static bool TryApplyCommandLineOptions(Configure options)
+	{
+		if (!string.IsNullOrWhiteSpace(options.EndpointString))
+		{
+			string? endpoint = OllamaClient.NormalizeEndpoint(options.EndpointString);
+			if (endpoint is null)
+			{
+				Console.Error.WriteLine($"\"{options.EndpointString.Trim()}\" is not an http or https address.");
+				return false;
+			}
+
+			Program.Settings.OllamaEndpoint = endpoint.As<OllamaEndpoint>();
+		}
+
+		if (!string.IsNullOrWhiteSpace(options.ModelString))
+		{
+			Program.Settings.OllamaModel = options.ModelString.Trim().As<OllamaModelName>();
+		}
+
+		return true;
 	}
 }
