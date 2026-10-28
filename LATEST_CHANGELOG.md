@@ -1,7 +1,6 @@
-## v1.2.11 (patch)
+## v1.2.12-pre.1 (prerelease)
 
-Changes since v1.2.10:
+Changes since v1.2.11:
 
-- Merge main into fix/181-explicit-dot-path (Claude)
-- Scan an explicit -p . instead of prompting for a path [patch] (Claude)
+- Bump MSTest.Sdk from 4.5.1 to 4.5.2 (dependabot[bot])
 
