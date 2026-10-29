@@ -19,6 +19,14 @@ internal static class OllamaClient
 	};
 
 	/// <summary>
+	/// The largest image file sent to Ollama. The image travels base64-encoded inside a JSON
+	/// string, and System.Text.Json refuses a string value over 166,666,666 characters, which a
+	/// file of about 125 MB already exceeds. A vision model downscales its input long before
+	/// this size anyway.
+	/// </summary>
+	internal const long MaxImageBytes = 100L * 1024 * 1024;
+
+	/// <summary>
 	/// Normalizes an endpoint as a user would type it: adds <c>http://</c> when the scheme is
 	/// missing (Ollama prints its address as <c>localhost:11434</c>) and drops trailing slashes.
 	/// Returns <see langword="null"/> unless the result is an absolute http or https URI.
@@ -75,8 +83,15 @@ internal static class OllamaClient
 		}
 	}
 
+	/// <exception cref="InvalidDataException">The image is larger than <see cref="MaxImageBytes"/>.</exception>
 	internal static async Task<string> DescribeImageAsync(OllamaEndpoint endpoint, OllamaModelName model, string prompt, AbsoluteFilePath imagePath)
 	{
+		long length = new FileInfo(imagePath.WeakString).Length;
+		if (length > MaxImageBytes)
+		{
+			throw new InvalidDataException($"The image is {length} bytes, over the {MaxImageBytes}-byte limit for sending an image to Ollama.");
+		}
+
 		byte[] imageBytes = await File.ReadAllBytesAsync(imagePath.WeakString).ConfigureAwait(false);
 		string base64Image = Convert.ToBase64String(imageBytes);
 

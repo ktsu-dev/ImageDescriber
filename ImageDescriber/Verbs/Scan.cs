@@ -243,7 +243,7 @@ internal sealed class Scan : BaseVerb<Scan>
 					Console.WriteLine($"  [{index}/{total}] Done: {description[..Math.Min(80, description.Length)]}...");
 				}
 			}
-			catch (Exception ex) when (ex is HttpRequestException or JsonException or OperationCanceledException or IOException or UnauthorizedAccessException)
+			catch (Exception ex) when (ex is HttpRequestException or JsonException or OperationCanceledException or IOException or UnauthorizedAccessException or InvalidDataException)
 			{
 				// OperationCanceledException covers the TaskCanceledException HttpClient throws on timeout.
 				string failure = $"{filePath}: {ex.GetType().Name}: {ex.Message}";
