@@ -208,6 +208,43 @@ public class ScanTests
 	}
 
 	[TestMethod]
+	[DataRow("com0")]
+	[DataRow("LPT0")]
+	[DataRow("COM\u00B9")]
+	[DataRow("lpt\u00B3")]
+	public void SanitizeFileNameAvoidsTheNewerWindowsDeviceNames(string suggestion)
+	{
+		FileName result = Scan.SanitizeFileName(suggestion, ".jpg".As<FileExtension>());
+
+		Assert.AreEqual($"{suggestion}-image.jpg", result.WeakString);
+	}
+
+	[TestMethod]
+	[DataRow("aux.cable", "aux-image.cable.jpg")]
+	[DataRow("NUL.backup", "NUL-image.backup.jpg")]
+	[DataRow("con.struction-site", "con-image.struction-site.jpg")]
+	[DataRow("com1.port.diagram", "com1-image.port.diagram.jpg")]
+	[DataRow("aux .cable", "aux-image .cable.jpg")]
+	public void SanitizeFileNameAvoidsADeviceNameBeforeTheFirstDot(string suggestion, string expected)
+	{
+		// Windows treats "aux.cable.jpg" as the AUX device, so a renamed file with that name fails
+		FileName result = Scan.SanitizeFileName(suggestion, ".jpg".As<FileExtension>());
+
+		Assert.AreEqual(expected, result.WeakString);
+	}
+
+	[TestMethod]
+	[DataRow("auxiliary.cable", "auxiliary.cable.jpg")]
+	[DataRow("st.-louis-arch", "st.-louis-arch.jpg")]
+	[DataRow("cable.aux", "cable.aux.jpg")]
+	public void SanitizeFileNameKeepsDotsWhenTheFirstSegmentIsNotADeviceName(string suggestion, string expected)
+	{
+		FileName result = Scan.SanitizeFileName(suggestion, ".jpg".As<FileExtension>());
+
+		Assert.AreEqual(expected, result.WeakString);
+	}
+
+	[TestMethod]
 	public void SanitizeFileNameKeepsNamesThatOnlyStartWithADeviceName()
 	{
 		FileName result = Scan.SanitizeFileName("console-on-desk", ".jpg".As<FileExtension>());

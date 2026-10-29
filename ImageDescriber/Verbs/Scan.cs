@@ -295,10 +295,14 @@ internal sealed class Scan : BaseVerb<Scan>
 			name = "unnamed";
 		}
 
-		// Windows refuses a device name as a file name whatever extension follows it ("con.jpg")
-		if (WindowsReservedNames.Contains(name))
+		// Windows refuses a device name as a file name whatever follows it after a dot ("con.jpg",
+		// "aux.cable.jpg", "nul.tar.gz"), and ignores trailing spaces before that dot, so the check is
+		// on the part before the first dot rather than on the whole stem
+		int firstDot = name.IndexOf('.', StringComparison.Ordinal);
+		string device = (firstDot < 0 ? name : name[..firstDot]).TrimEnd(' ');
+		if (WindowsReservedNames.Contains(device))
 		{
-			name = $"{name}-image";
+			name = name.Insert(device.Length, "-image");
 		}
 
 		return $"{name}{extension}".As<FileName>();
@@ -347,8 +351,11 @@ internal sealed class Scan : BaseVerb<Scan>
 	private static readonly HashSet<string> WindowsReservedNames = new(
 		[
 			"CON", "PRN", "AUX", "NUL",
-			"COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
-			"LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+			"COM0", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+			"LPT0", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+			// Current Windows also reserves the superscript-digit forms
+			"COM\u00B9", "COM\u00B2", "COM\u00B3",
+			"LPT\u00B9", "LPT\u00B2", "LPT\u00B3",
 		],
 		StringComparer.OrdinalIgnoreCase);
 
