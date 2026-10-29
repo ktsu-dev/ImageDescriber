@@ -64,12 +64,68 @@ public class ScanTests
 	public void ValidateArgsPromptsWhenNoPathWasGiven()
 	{
 		Scan scan = new();
+		string folder = Path.GetTempPath().TrimEnd(Path.DirectorySeparatorChar);
 
-		(bool valid, string output) = ValidateWithInput(scan, "/tmp/pictures\n");
+		(bool valid, string output) = ValidateWithInput(scan, folder + "\n");
 
 		Assert.IsTrue(valid, output);
 		StringAssert.Contains(output, "Enter the path");
-		Assert.AreEqual("/tmp/pictures", scan.PathString);
+		Assert.AreEqual(folder, scan.PathString);
+	}
+
+	[TestMethod]
+	public void ValidateArgsRejectsAFileWithoutThrowing()
+	{
+		string file = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.jpg");
+		File.WriteAllBytes(file, [0xFF, 0xD8]);
+		try
+		{
+			Scan scan = new() { PathString = file };
+
+			(bool valid, string output) = ValidateWithInput(scan, string.Empty);
+
+			Assert.IsFalse(valid, output);
+			StringAssert.Contains(output, "Not a directory");
+		}
+		finally
+		{
+			File.Delete(file);
+		}
+	}
+
+	[TestMethod]
+	public void ValidateArgsRejectsAMissingDirectory()
+	{
+		Scan scan = new() { PathString = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString()) };
+
+		(bool valid, string output) = ValidateWithInput(scan, string.Empty);
+
+		Assert.IsFalse(valid, output);
+		StringAssert.Contains(output, "Directory not found");
+	}
+
+	[TestMethod]
+	public void RunMarksAFilePathAsFailed()
+	{
+		string file = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.jpg");
+		File.WriteAllBytes(file, [0xFF, 0xD8]);
+		TextWriter originalOut = Console.Out;
+		using StringWriter output = new();
+		Console.SetOut(output);
+		try
+		{
+			Scan scan = new() { PathString = file };
+
+			scan.Run();
+
+			Assert.IsTrue(scan.Failed, output.ToString());
+			StringAssert.Contains(output.ToString(), "Not a directory");
+		}
+		finally
+		{
+			Console.SetOut(originalOut);
+			File.Delete(file);
+		}
 	}
 
 	private static (bool Valid, string Output) ValidateWithInput(Scan scan, string input)

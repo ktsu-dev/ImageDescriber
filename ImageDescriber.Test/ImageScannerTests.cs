@@ -32,6 +32,28 @@ public class ImageScannerTests
 	}
 
 	[TestMethod]
+	public void ScanForImagesReportsAFileAsNotADirectory()
+	{
+		string file = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.jpg");
+		File.WriteAllBytes(file, [0xFF, 0xD8]);
+		TextWriter originalOut = Console.Out;
+		using StringWriter output = new();
+		Console.SetOut(output);
+		try
+		{
+			IReadOnlyList<AbsoluteFilePath> results = ImageScanner.ScanForImages(file.As<AbsoluteDirectoryPath>());
+
+			Assert.AreEqual(0, results.Count);
+			StringAssert.Contains(output.ToString(), "Not a directory");
+		}
+		finally
+		{
+			Console.SetOut(originalOut);
+			File.Delete(file);
+		}
+	}
+
+	[TestMethod]
 	public void ScanForImagesSkipsUnreadableSubdirectories()
 	{
 		if (OperatingSystem.IsWindows())
