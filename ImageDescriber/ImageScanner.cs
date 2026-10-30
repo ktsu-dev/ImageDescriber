@@ -24,9 +24,10 @@ internal static class ImageScanner
 
 	internal static IReadOnlyList<AbsoluteFilePath> ScanForImages(AbsoluteDirectoryPath path)
 	{
-		if (!path.Exists)
+		string? problem = DescribeUnscannablePath(path);
+		if (problem is not null)
 		{
-			Console.WriteLine($"Directory not found: {path}");
+			Console.WriteLine(problem);
 			return [];
 		}
 
@@ -48,6 +49,21 @@ internal static class ImageScanner
 		}
 
 		return imageFiles;
+	}
+
+	/// <summary>
+	/// Returns why <paramref name="path"/> can't be scanned, or null when it is an existing directory.
+	/// </summary>
+	internal static string? DescribeUnscannablePath(AbsoluteDirectoryPath path)
+	{
+		// path.Exists is also true for a file, which Directory.EnumerateFiles then rejects with an
+		// unhandled DirectoryNotFoundException, so tell a file apart from a directory first
+		if (File.Exists(path.WeakString))
+		{
+			return $"Not a directory: {path}";
+		}
+
+		return Directory.Exists(path.WeakString) ? null : $"Directory not found: {path}";
 	}
 
 	internal static bool IsImageExtension(string extension)
