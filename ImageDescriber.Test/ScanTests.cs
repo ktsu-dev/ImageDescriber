@@ -380,6 +380,54 @@ public class ScanTests
 	}
 
 	[TestMethod]
+	public void DescribeImagesReportsAnOversizedImageAndContinues()
+	{
+		string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+		Directory.CreateDirectory(tempDir);
+
+		using HttpListener listener = StartFakeOllama(out string endpoint);
+		try
+		{
+			AbsoluteFilePath huge = Path.Combine(tempDir, "huge.tif").As<AbsoluteFilePath>();
+			AbsoluteFilePath small = Path.Combine(tempDir, "small.png").As<AbsoluteFilePath>();
+			using (FileStream stream = File.Create(huge.WeakString))
+			{
+				// Sparse where the file system allows it, so the test does not write the bytes.
+				stream.SetLength(OllamaClient.MaxImageBytes + 1);
+			}
+
+			File.WriteAllBytes(small.WeakString, [0x89, 0x50]);
+
+			Dictionary<string, List<AbsoluteFilePath>> newHashPaths = new()
+			{
+				["huge"] = [huge],
+				["small"] = [small],
+			};
+			ConcurrentBag<ImageDescription> stored = [];
+
+			IReadOnlyList<string> failures = Scan.DescribeImages(
+				newHashPaths,
+				endpoint.As<OllamaEndpoint>(),
+				"test-model".As<OllamaModelName>(),
+				"Describe.",
+				"Name it.",
+				maxConcurrency: 1,
+				stored.Add);
+
+			Assert.HasCount(1, stored);
+			Assert.AreEqual("small", stored.Single().Hash);
+			Assert.HasCount(1, failures);
+			Assert.Contains("huge.tif", failures[0]);
+			Assert.Contains(nameof(InvalidDataException), failures[0]);
+		}
+		finally
+		{
+			listener.Stop();
+			Directory.Delete(tempDir, true);
+		}
+	}
+
+	[TestMethod]
 	public void ScanReportsFailedImagesAndCompletes()
 	{
 		string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
