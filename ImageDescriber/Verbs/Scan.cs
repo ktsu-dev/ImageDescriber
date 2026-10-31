@@ -40,7 +40,13 @@ internal sealed class Scan : BaseVerb<Scan>
 
 		// Check the path before the Ollama check and the store lock, so a file or a missing folder
 		// fails fast with a message and a non-zero exit instead of a crash or a "Found 0 image(s)"
-		string? problem = ImageScanner.DescribeUnscannablePath(Path);
+		AbsoluteDirectoryPath? path = TryGetPath();
+		if (path is null)
+		{
+			return false;
+		}
+
+		string? problem = ImageScanner.DescribeUnscannablePath(path);
 		if (problem is not null)
 		{
 			Console.WriteLine(problem);
