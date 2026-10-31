@@ -9,6 +9,7 @@ using System.IO;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -269,12 +270,7 @@ internal sealed class Scan : BaseVerb<Scan>
 
 	internal static FileName SanitizeFileName(string rawSuggestion, FileExtension extension)
 	{
-		// Take the first line with content, so a name wrapped in a code fence or preceded by a
-		// blank line is kept, and only then trim the quotes and backticks around it
-		string name = rawSuggestion
-			.Split('\n')
-			.Select(line => line.Trim())
-			.FirstOrDefault(line => line.Length > 0 && !IsCodeFence(line)) ?? string.Empty;
+		string name = SelectNameLine(rawSuggestion);
 		// Models often end the answer with a full stop. Drop it before the extension check, so
 		// "photo.jpg." still loses its extension and "sunset." does not become "sunset..jpg"
 		name = name.Trim('"', '\'', '`').Trim().TrimEnd('.', ' ');
@@ -373,6 +369,36 @@ internal sealed class Scan : BaseVerb<Scan>
 
 	// An opening or closing fence ("```" or "```text"), as opposed to a name written inline
 	// between two fences on one line ("```sunset```")
+	/// <summary>
+	/// Picks the line of a model's answer that holds the name, and strips the markdown and the label
+	/// around it. Chat-tuned models often write a lead-in line such as "Here is a suggested filename:"
+	/// and put the name on the next line, or answer "**Filename:** `sunset-beach`" on one line.
+	/// </summary>
+	internal static string SelectNameLine(string rawSuggestion)
+	{
+		// Take the first line with content, so a name wrapped in a code fence or preceded by a
+		// blank line is kept, and only then trim the quotes and backticks around it
+		string[] lines = [.. rawSuggestion
+			.Split('\n')
+			.Select(line => line.Trim())
+			.Where(line => line.Length > 0 && !IsCodeFence(line))];
+
+		// A lead-in ends with a colon and a name doesn't, so skip it when something follows it
+		string name = lines.FirstOrDefault(line => !IsLeadIn(line)) ?? lines.FirstOrDefault() ?? string.Empty;
+
+		name = MarkdownLineMarker.Replace(name, string.Empty);
+		return NameLabel.Replace(name, string.Empty);
+	}
+
+	private static bool IsLeadIn(string line) => line.TrimEnd('*', '_', ' ').EndsWith(':');
+
+	// A heading, bullet or numbered-list marker in front of the name: "# ", "- ", "* ", "1. "
+	private static readonly Regex MarkdownLineMarker = new(@"^(?:#{1,6}|[-*+]|\d+[.)])\s+", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+
+	// A label in front of the name on the same line: "Filename: ", "**Suggested filename:** ".
+	// Only words and spaces, followed by a space, so a time such as "sunset-at-5:30pm" is not a label
+	private static readonly Regex NameLabel = new(@"^[*_]*\p{L}[\p{L} '\u2019]{0,39}[*_]*:[*_]*\s+(?=\S)", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+
 	private static bool IsCodeFence(string line) =>
 		line.StartsWith("```", StringComparison.Ordinal)
 		&& (line.Length < 6 || !line.EndsWith("```", StringComparison.Ordinal));

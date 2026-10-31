@@ -32,6 +32,35 @@ public class ScanTests
 	}
 
 	[TestMethod]
+	[DataRow("Here is a suggested filename:\n\nsunset-over-the-lake", "sunset-over-the-lake.jpg")]
+	[DataRow("Here's a short, descriptive filename for the image:\n\n`sunset-over-the-lake`", "sunset-over-the-lake.jpg")]
+	[DataRow("**Here is the filename:**\nsunset-over-the-lake", "sunset-over-the-lake.jpg")]
+	[DataRow("Here is a suggested filename:\n```\nsunset-over-the-lake\n```", "sunset-over-the-lake.jpg")]
+	[DataRow("**Filename:** `sunset-beach`", "sunset-beach.jpg")]
+	[DataRow("Suggested filename: sunset-beach", "sunset-beach.jpg")]
+	[DataRow("_Filename_: sunset-beach", "sunset-beach.jpg")]
+	[DataRow("# sunset-beach", "sunset-beach.jpg")]
+	[DataRow("- sunset-beach", "sunset-beach.jpg")]
+	[DataRow("1. sunset-beach", "sunset-beach.jpg")]
+	public void SanitizeFileNameSkipsALeadInAndStripsALabelOrMarkdownMarker(string raw, string expected)
+	{
+		FileName result = Scan.SanitizeFileName(raw, ".jpg".As<FileExtension>());
+
+		Assert.AreEqual(expected, result.WeakString);
+	}
+
+	[TestMethod]
+	[DataRow("sunset-at-5:30pm", "sunset-at-5-30pm.jpg")]
+	[DataRow("Filename:", "Filename.jpg")]
+	[DataRow("**sunset-beach**", "sunset-beach.jpg")]
+	public void SanitizeFileNameKeepsANameThatOnlyLooksLikeALabelOrLeadIn(string raw, string expected)
+	{
+		FileName result = Scan.SanitizeFileName(raw, ".jpg".As<FileExtension>());
+
+		Assert.AreEqual(expected, result.WeakString);
+	}
+
+	[TestMethod]
 	public void SanitizeFileNameStripsExistingExtension()
 	{
 		FileName result = Scan.SanitizeFileName("photo.png", ".jpg".As<FileExtension>());
