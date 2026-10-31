@@ -3,6 +3,7 @@
 namespace ktsu.ImageDescriber.Tests;
 
 using ktsu.ImageDescriber.Verbs;
+using ktsu.Semantics.Strings;
 
 [TestClass]
 public class StatsTests
@@ -36,5 +37,47 @@ public class StatsTests
 	{
 		Assert.AreEqual("1.0 GB", Stats.FormatBytes(1024L * 1024 * 1024));
 		Assert.AreEqual("2.5 GB", Stats.FormatBytes((long)(1024L * 1024 * 1024 * 2.5)));
+	}
+
+	[TestMethod]
+	public void RunDoesNotOverflowWhenTheSizesAddUpToMoreThanALong()
+	{
+		PersistentState originalSettings = Program.Settings;
+		TextWriter originalOut = Console.Out;
+		try
+		{
+			Program.Settings = new PersistentState();
+			foreach (char c in "ab")
+			{
+				string hash = new(c, 64);
+				Program.Settings.Descriptions[hash] = new ImageDescription
+				{
+					Hash = hash,
+					Model = "llava".As<OllamaModelName>(),
+					FileSizeBytes = long.MaxValue,
+					Description = "A photo.",
+				};
+			}
+
+			using StringWriter output = new();
+			Console.SetOut(output);
+
+			new Stats().Run(new Stats());
+
+			Assert.Contains("Total file size: 17179869184.0 GB", output.ToString());
+		}
+		finally
+		{
+			Console.SetOut(originalOut);
+			Program.Settings = originalSettings;
+		}
+	}
+
+	[TestMethod]
+	public void TotalFileSizeAddsPastLongMaxValue()
+	{
+		ImageDescription[] descriptions = [new() { FileSizeBytes = long.MaxValue }, new() { FileSizeBytes = long.MaxValue }];
+
+		Assert.AreEqual(2m * long.MaxValue, Stats.TotalFileSize(descriptions));
 	}
 }
