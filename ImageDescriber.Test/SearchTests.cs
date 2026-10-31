@@ -35,6 +35,50 @@ public class SearchTests
 	}
 
 	[TestMethod]
+	[DataRow("sunset")]
+	[DataRow("beach sunset")]
+	[DataRow("sunset beach")]
+	[DataRow("dog beach")]
+	[DataRow("dog  running")]
+	[DataRow("SUNSET Beach")]
+	[DataRow("waterline holiday")]
+	public void SearchMatchesAnEntryContainingEveryKeywordInAnyOrder(string query)
+	{
+		Program.Settings = new PersistentState();
+		AddBeachEntry();
+
+		string output = CaptureConsole(() => new Search().Run(new Search { Query = query }));
+
+		StringAssert.Contains(output, "1 match(es)");
+	}
+
+	[TestMethod]
+	[DataRow("beach snow")]
+	[DataRow("snow")]
+	[DataRow("cat running")]
+	public void SearchDoesNotMatchAnEntryMissingAKeyword(string query)
+	{
+		Program.Settings = new PersistentState();
+		AddBeachEntry();
+
+		string output = CaptureConsole(() => new Search().Run(new Search { Query = query }));
+
+		StringAssert.Contains(output, "0 match(es)");
+	}
+
+	private static void AddBeachEntry()
+	{
+		string hash = new('d', ImageHasher.HashLength);
+		Program.Settings.Descriptions[hash] = new ImageDescription
+		{
+			Hash = hash,
+			Description = "A sandy beach at sunset, with a dog running along the waterline.",
+			SuggestedFileName = "beach.jpg".As<FileName>(),
+			KnownPaths = [Path.Combine(Path.GetTempPath(), "holiday-2024.jpg").As<AbsoluteFilePath>()],
+		};
+	}
+
+	[TestMethod]
 	public void MergeEntriesSkipsEntriesWhoseHashIsNotSha256Hex()
 	{
 		Program.Settings = new PersistentState();
