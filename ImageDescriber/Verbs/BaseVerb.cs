@@ -2,6 +2,9 @@
 
 namespace ktsu.ImageDescriber.Verbs;
 
+using System.Collections.Generic;
+using System.Linq;
+
 using CommandLine;
 
 using DustInTheWind.ConsoleTools.Controls.Menus;
@@ -19,6 +22,13 @@ internal abstract class BaseVerb : ICommand
 
 	[Option('m', "model", Required = false, HelpText = "The Ollama vision model to use.")]
 	public string ModelString { get; set; } = string.Empty;
+
+	/// <summary>
+	/// Words no verb or option claims, such as a misspelled verb that fell back to the default
+	/// <see cref="Menu"/>, or the second half of an unquoted path. Any of these fails the run.
+	/// </summary>
+	[Value(0, Hidden = true)]
+	public IEnumerable<string> UnclaimedArguments { get; set; } = [];
 
 	public abstract bool IsActive { get; }
 
@@ -59,6 +69,14 @@ internal abstract class BaseVerb<T> : BaseVerb where T : BaseVerb<T>
 	public override void Run()
 	{
 		Failed = false;
+		string? unclaimed = UnclaimedArguments.FirstOrDefault();
+		if (unclaimed is not null)
+		{
+			Console.Error.WriteLine($"Unknown verb or argument '{unclaimed}'. Quote a path that contains spaces.");
+			Failed = true;
+			return;
+		}
+
 		if (!ValidateArgs())
 		{
 			Failed = true;

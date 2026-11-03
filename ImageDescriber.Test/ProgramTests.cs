@@ -24,6 +24,44 @@ public class ProgramTests
 		Assert.AreEqual(1, RunQuietly("Search"));
 
 	[TestMethod]
+	[DataRow("Scna")]
+	[DataRow("Scna", "-p", ".")]
+	public void RunReturnsNonZeroForAnUnknownVerb(params string[] args) =>
+		Assert.AreEqual(1, RunQuietly(args));
+
+	[TestMethod]
+	public void RunReturnsNonZeroForAStrayPositionalWord() =>
+		Assert.AreEqual(1, RunQuietly("Search", "-q", "dog", "cat"));
+
+	[TestMethod]
+	public void RunMatchesAVerbIgnoringCase()
+	{
+		TextReader originalIn = Console.In;
+		TextWriter originalOut = Console.Out;
+		using StringWriter output = new();
+		int exitCode;
+		try
+		{
+			// Empty input, so a fallback to the interactive menu ends instead of blocking
+			Console.SetIn(new StringReader(string.Empty));
+			Console.SetOut(output);
+			exitCode = Program.Run(["stats"]);
+		}
+		finally
+		{
+			Console.SetIn(originalIn);
+			Console.SetOut(originalOut);
+		}
+
+		Assert.AreEqual(0, exitCode);
+		StringAssert.Contains(output.ToString(), "Database Statistics");
+	}
+
+	[TestMethod]
+	public void RunReportsAMissingOptionForALowerCaseVerb() =>
+		Assert.AreEqual(1, RunQuietly("search"));
+
+	[TestMethod]
 	public void RunReturnsNonZeroWhenOllamaIsUnavailable()
 	{
 		string directory = Directory.CreateTempSubdirectory().FullName;
