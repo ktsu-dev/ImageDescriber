@@ -58,7 +58,12 @@ internal sealed class Export : BaseVerb<Export>
 			return;
 		}
 
-		AbsoluteFilePath outputFile = System.IO.Path.GetFullPath(options.OutputPath).As<AbsoluteFilePath>();
+		AbsoluteFilePath? outputFile = TryConvertUserPath(options.OutputPath, static p => p.As<AbsoluteFilePath>());
+		if (outputFile is null)
+		{
+			Failed = true;
+			return;
+		}
 
 		switch (outputFile.FileExtension.WeakString.ToUpperInvariant())
 		{

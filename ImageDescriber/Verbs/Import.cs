@@ -48,7 +48,12 @@ internal sealed class Import : BaseVerb<Import>
 
 	internal override void Run(Import options)
 	{
-		AbsoluteFilePath inputFile = System.IO.Path.GetFullPath(options.InputPath).As<AbsoluteFilePath>();
+		AbsoluteFilePath? inputFile = TryConvertUserPath(options.InputPath, static p => p.As<AbsoluteFilePath>());
+		if (inputFile is null)
+		{
+			Failed = true;
+			return;
+		}
 
 		if (!File.Exists(inputFile.WeakString))
 		{

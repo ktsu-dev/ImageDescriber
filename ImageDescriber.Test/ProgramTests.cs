@@ -93,6 +93,59 @@ public class ProgramTests
 	public void RunReturnsZeroForHelp() =>
 		Assert.AreEqual(0, RunQuietly("--help"));
 
+	[TestMethod]
+	[DataRow("Scan", "-p")]
+	[DataRow("Import", "-i")]
+	[DataRow("Export", "-o")]
+	public void RunReturnsNonZeroForAPathContainingABarInsteadOfThrowing(string verb, string option)
+	{
+		// | is legal in a POSIX file name, but ktsu.Semantics.Paths rejects it
+		AddEntrySoExportHasSomethingToWrite();
+		string path = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "a|b.json");
+
+		Assert.AreEqual(1, RunQuietly(verb, option, path));
+	}
+
+	[TestMethod]
+	[DataRow("Scan", "-p")]
+	[DataRow("Import", "-i")]
+	[DataRow("Export", "-o")]
+	public void RunReturnsNonZeroForAPathOver256CharactersInsteadOfThrowing(string verb, string option)
+	{
+		AddEntrySoExportHasSomethingToWrite();
+		string path = Path.Combine(Path.GetTempPath(), new string('a', 120), new string('b', 120), new string('c', 40) + ".json");
+
+		Assert.AreEqual(1, RunQuietly(verb, option, path));
+	}
+
+	[TestMethod]
+	public void ImportExplainsAnUnsupportedPath()
+	{
+		string path = Path.Combine(Path.GetTempPath(), "x|y.json");
+		using StringWriter output = new();
+		Import import = new();
+
+		TextWriter original = Console.Out;
+		Console.SetOut(output);
+		try
+		{
+			import.Run(new Import { InputPath = path });
+		}
+		finally
+		{
+			Console.SetOut(original);
+		}
+
+		Assert.IsTrue(import.Failed);
+		StringAssert.Contains(output.ToString(), $"Unsupported path: {path}");
+	}
+
+	private static void AddEntrySoExportHasSomethingToWrite()
+	{
+		string hash = new('e', ImageHasher.HashLength);
+		Program.Settings.Descriptions[hash] = new ImageDescription { Hash = hash };
+	}
+
 	private static int RunQuietly(params string[] args)
 	{
 		int exitCode = 0;
