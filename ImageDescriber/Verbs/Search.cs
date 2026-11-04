@@ -45,9 +45,10 @@ internal sealed class Search : BaseVerb<Search>
 
 		Dictionary<string, ImageDescription> descriptions = Program.Settings.Descriptions;
 
+		string[] terms = SplitQuery(options.Query);
+
 		ImageDescription[] matches = [.. descriptions
-			.Where(kvp => kvp.Value.Description.Contains(options.Query, StringComparison.OrdinalIgnoreCase)
-				|| kvp.Value.KnownPaths.Any(p => p.FileName.Contains(options.Query, StringComparison.OrdinalIgnoreCase)))
+			.Where(kvp => MatchesAllTerms(kvp.Value, terms))
 			.OrderByDescending(kvp => kvp.Value.DescribedAt)
 			.Select(kvp => kvp.Value)];
 
@@ -69,4 +70,19 @@ internal sealed class Search : BaseVerb<Search>
 			Console.WriteLine();
 		}
 	}
+
+	/// <summary>
+	/// Splits a query into its whitespace-separated keywords.
+	/// </summary>
+	internal static string[] SplitQuery(string query) =>
+		query.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+
+	/// <summary>
+	/// An entry matches when every keyword appears, case-insensitively, in its description or in one of its
+	/// known file names. The keywords may appear in any order and need not be adjacent.
+	/// </summary>
+	internal static bool MatchesAllTerms(ImageDescription description, IReadOnlyCollection<string> terms) =>
+		terms.Count > 0 && terms.All(term =>
+			description.Description.Contains(term, StringComparison.OrdinalIgnoreCase)
+			|| description.KnownPaths.Any(p => p.FileName.Contains(term, StringComparison.OrdinalIgnoreCase)));
 }
