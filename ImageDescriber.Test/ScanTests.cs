@@ -48,6 +48,36 @@ public class ScanTests
 	}
 
 	[TestMethod]
+	[DataRow("**sunset-beach.jpg**", ".jpg", "sunset-beach.jpg")]
+	[DataRow("sunset-beach.jpg?", ".jpg", "sunset-beach.jpg")]
+	[DataRow("`sunset-beach.png`.", ".png", "sunset-beach.png")]
+	[DataRow("_sunset-beach.jpg_", ".jpg", "sunset-beach.jpg")]
+	[DataRow("\"**sunset-beach.jpg**\".", ".jpg", "sunset-beach.jpg")]
+	[DataRow("Suggested filename: **sunset-beach.png**", ".png", "Suggested filename- -sunset-beach.png")]
+	public void SanitizeFileNameStripsAnExtensionWrappedInFormattingOrPunctuation(string raw, string extension, string expected)
+	{
+		// The extension used to be checked before the wrapping was removed, so "sunset-beach.jpg**"
+		// had no recognisable extension, lost its "**" later, and had ".jpg" appended a second time
+		FileName result = Scan.SanitizeFileName(raw, extension.As<FileExtension>());
+
+		Assert.AreEqual(expected, result.WeakString);
+	}
+
+	[TestMethod]
+	[DataRow("1/2-price-sale.jpg", "1-2-price-sale.jpg")]
+	[DataRow("before/after-comparison.jpg", "before-after-comparison.jpg")]
+	[DataRow("before/after-comparison", "before-after-comparison.jpg")]
+	[DataRow("before\\after-comparison.jpg", "before-after-comparison.jpg")]
+	public void SanitizeFileNameKeepsEveryWordAroundASlash(string raw, string expected)
+	{
+		// Path.GetFileNameWithoutExtension read the slash as a directory separator and dropped the
+		// words before it, on Windows for a backslash too, but only when the answer had an extension
+		FileName result = Scan.SanitizeFileName(raw, ".jpg".As<FileExtension>());
+
+		Assert.AreEqual(expected, result.WeakString);
+	}
+
+	[TestMethod]
 	public void ValidateArgsKeepsAnExplicitDotPathWithoutPrompting()
 	{
 		Scan scan = new() { PathString = "." };

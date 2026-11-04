@@ -275,21 +275,28 @@ internal sealed class Scan : BaseVerb<Scan>
 			.Split('\n')
 			.Select(line => line.Trim())
 			.FirstOrDefault(line => line.Length > 0 && !IsCodeFence(line)) ?? string.Empty;
-		// Models often end the answer with a full stop. Drop it before the extension check, so
-		// "photo.jpg." still loses its extension and "sunset." does not become "sunset..jpg"
-		name = name.Trim('"', '\'', '`').Trim().TrimEnd('.', ' ');
-
-		// Strip an image extension the model may have included. A suggestion normally has no
-		// extension, so any other dot is part of the name ("st.-louis-arch", "sunset-at-5.30pm")
-		if (ImageScanner.IsImageExtension(System.IO.Path.GetExtension(name)))
-		{
-			name = System.IO.Path.GetFileNameWithoutExtension(name);
-		}
-
 		// Remove characters Windows rejects. Path.GetInvalidFileNameChars() is only "\0" and "/" on
 		// Linux and macOS, and a suggestion is stored once per hash and meant for renaming, so a name
-		// suggested there has to be legal on Windows, NTFS, SMB and exFAT as well
+		// suggested there has to be legal on Windows, NTFS, SMB and exFAT as well. This runs before the
+		// extension check, so "before/after-comparison.jpg" keeps "before" on every OS instead of being
+		// read as a directory, and "sunset-beach.jpg?" has its "?" turned into something trimmable
 		name = string.Concat(name.Select(c => IsPortableFileNameChar(c) ? c : '-'));
+
+		// Models often wrap the answer in quotes, backticks or markdown emphasis, or end it with a full
+		// stop, in any nesting ("`sunset-beach.png`.", "**sunset-beach.jpg**"). Peel all of it off
+		// before the extension check, so the extension is the last thing left and "sunset." does not
+		// become "sunset..jpg"
+		name = name.Trim(NameDecoration);
+
+		// Strip an image extension the model may have included. A suggestion normally has no
+		// extension, so any other dot is part of the name ("st.-louis-arch", "sunset-at-5.30pm").
+		// Sliced off by hand rather than with Path.GetFileNameWithoutExtension, which would also drop
+		// anything before a "\" on Windows
+		int extensionStart = name.LastIndexOf('.');
+		if (extensionStart >= 0 && ImageScanner.IsImageExtension(name[extensionStart..]))
+		{
+			name = name[..extensionStart];
+		}
 
 		// Collapse multiple hyphens and trim
 		while (name.Contains("--", StringComparison.Ordinal))
@@ -316,6 +323,10 @@ internal sealed class Scan : BaseVerb<Scan>
 
 		return $"{name}{extension}".As<FileName>();
 	}
+
+	// Wrapping a model puts around a name rather than part of it: quotes, backticks, markdown
+	// emphasis, a closing full stop, and the hyphens the non-portable characters among them became
+	private static readonly char[] NameDecoration = ['"', '\'', '`', '*', '_', '-', '.', ' '];
 
 	// NTFS, ext4 and APFS allow 255 bytes or UTF-16 units per name. Capping the stem well below that,
 	// in UTF-8 bytes, keeps a multibyte name legal everywhere once the extension is added
