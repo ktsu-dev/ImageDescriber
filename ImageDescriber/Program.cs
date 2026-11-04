@@ -33,7 +33,13 @@ internal static class Program
 	internal static int Run(string[] args)
 	{
 		int exitCode = 0;
-		_ = Parser.Default.ParseArguments(args, Verbs)
+		using Parser parser = new(settings =>
+		{
+			// Match verbs and options in any case, so `scan` runs Scan instead of falling back to the menu
+			settings.CaseSensitive = false;
+			settings.HelpWriter = Console.Error;
+		});
+		_ = parser.ParseArguments(args, Verbs)
 			.WithParsed<BaseVerb>(task =>
 			{
 				task.Run();
