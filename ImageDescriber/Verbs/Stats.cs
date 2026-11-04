@@ -23,8 +23,7 @@ internal sealed class Stats : BaseVerb<Stats>
 			return;
 		}
 
-		long totalSize = descriptions.Values.Sum(d => d.FileSizeBytes);
-		Console.WriteLine($"Total file size: {FormatBytes(totalSize)}");
+		Console.WriteLine($"Total file size: {FormatBytes(TotalFileSize(descriptions.Values))}");
 		Console.WriteLine();
 
 		// Models used
@@ -64,11 +63,18 @@ internal sealed class Stats : BaseVerb<Stats>
 		Console.WriteLine($"Average description length: {avgLength:F0} characters");
 	}
 
-	internal static string FormatBytes(long bytes) => bytes switch
+	/// <summary>
+	/// Totals the stored sizes in a <see cref="decimal"/>, since checked <see cref="long"/> addition
+	/// would throw once they add up to more than <see cref="long.MaxValue"/>.
+	/// </summary>
+	internal static decimal TotalFileSize(IEnumerable<ImageDescription> descriptions) =>
+		descriptions.Sum(d => (decimal)d.FileSizeBytes);
+
+	internal static string FormatBytes(decimal bytes) => bytes switch
 	{
-		< 1024L => $"{bytes} B",
-		< 1024L * 1024 => $"{bytes / 1024.0:F1} KB",
-		< 1024L * 1024 * 1024 => $"{bytes / (1024.0 * 1024.0):F1} MB",
-		_ => $"{bytes / (1024.0 * 1024.0 * 1024.0):F1} GB",
+		< 1024m => $"{bytes} B",
+		< 1024m * 1024 => $"{bytes / 1024m:F1} KB",
+		< 1024m * 1024 * 1024 => $"{bytes / (1024m * 1024m):F1} MB",
+		_ => $"{bytes / (1024m * 1024m * 1024m):F1} GB",
 	};
 }
