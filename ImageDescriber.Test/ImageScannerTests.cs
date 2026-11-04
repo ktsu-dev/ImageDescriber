@@ -181,7 +181,7 @@ public class ImageScannerTests
 
 		try
 		{
-			string[] extensions = [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tiff", ".tif"];
+			string[] extensions = [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"];
 			foreach (string ext in extensions)
 			{
 				File.WriteAllBytes(Path.Combine(tempDir, $"file{ext}"), [0x00]);
@@ -214,11 +214,41 @@ public class ImageScannerTests
 			IReadOnlyList<AbsoluteFilePath> results = ImageScanner.ScanForImages(tempDir.As<AbsoluteDirectoryPath>());
 
 			string[] names = [.. results.Select(r => Path.GetFileName(r.WeakString)).Order(StringComparer.Ordinal)];
-			string[] expected = ["IMG_0001.JPG", "photo.jpeg", "scan.TIFF", "screenshot.Png"];
+			string[] expected = ["IMG_0001.JPG", "photo.jpeg", "screenshot.Png"];
 			CollectionAssert.AreEqual(expected, names);
 		}
 		finally
 		{
+			Directory.Delete(tempDir, true);
+		}
+	}
+
+	[TestMethod]
+	public void ScanForImagesSkipsTiffAndReportsItOnce()
+	{
+		string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+		Directory.CreateDirectory(tempDir);
+		TextWriter originalOut = Console.Out;
+		using StringWriter output = new();
+		Console.SetOut(output);
+
+		try
+		{
+			File.WriteAllBytes(Path.Combine(tempDir, "photo.png"), [0x89, 0x50]);
+			File.WriteAllBytes(Path.Combine(tempDir, "scan.tiff"), [0x49, 0x49]);
+			File.WriteAllBytes(Path.Combine(tempDir, "page.TIF"), [0x4D, 0x4D]);
+
+			IReadOnlyList<AbsoluteFilePath> results = ImageScanner.ScanForImages(tempDir.As<AbsoluteDirectoryPath>());
+
+			Assert.HasCount(1, results);
+			Assert.AreEqual("photo.png", Path.GetFileName(results[0].WeakString));
+			string[] lines = output.ToString().Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
+			Assert.HasCount(1, lines);
+			StringAssert.Contains(lines[0], "Skipped 2 TIFF image(s)");
+		}
+		finally
+		{
+			Console.SetOut(originalOut);
 			Directory.Delete(tempDir, true);
 		}
 	}
