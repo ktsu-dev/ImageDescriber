@@ -48,7 +48,12 @@ internal sealed class Import : BaseVerb<Import>
 
 	internal override void Run(Import options)
 	{
-		AbsoluteFilePath inputFile = System.IO.Path.GetFullPath(options.InputPath).As<AbsoluteFilePath>();
+		AbsoluteFilePath? inputFile = TryConvertUserPath(options.InputPath, static p => p.As<AbsoluteFilePath>());
+		if (inputFile is null)
+		{
+			Failed = true;
+			return;
+		}
 
 		if (!File.Exists(inputFile.WeakString))
 		{
@@ -119,6 +124,14 @@ internal sealed class Import : BaseVerb<Import>
 			entry.Hash = entry.Hash.ToLowerInvariant();
 			RepairNullFields(entry);
 
+			// No file has a negative size, and Stats totals the stored sizes, so a negative one would
+			// show as a negative total on every later run. The description is still worth keeping.
+			if (entry.FileSizeBytes < 0)
+			{
+				Console.WriteLine($"  Entry {entry.Hash} ({entry.SuggestedFileName}) has a negative file size ({entry.FileSizeBytes}); storing 0 instead.");
+				entry.FileSizeBytes = 0;
+			}
+
 			if (Program.Settings.Descriptions.TryGetValue(entry.Hash, out ImageDescription? existing))
 			{
 				if (MergeKnownPaths(entry, existing))
@@ -164,7 +177,7 @@ internal sealed class Import : BaseVerb<Import>
 		return pathsAdded;
 	}
 
-	private static List<ImageDescription>? ImportJson(AbsoluteFilePath inputPath)
+	internal static List<ImageDescription>? ImportJson(AbsoluteFilePath inputPath)
 	{
 		string json = File.ReadAllText(inputPath.WeakString);
 

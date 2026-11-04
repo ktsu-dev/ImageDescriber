@@ -26,7 +26,33 @@ internal abstract class BaseVerb : ICommand
 	internal bool Failed { get; set; }
 
 	// An empty PathString means no -p was given, so a verb that doesn't ask for one uses the current directory
-	internal AbsoluteDirectoryPath Path => System.IO.Path.GetFullPath(string.IsNullOrWhiteSpace(PathString) ? "." : PathString).As<AbsoluteDirectoryPath>();
+	internal AbsoluteDirectoryPath Path => System.IO.Path.GetFullPath(PathOrCurrentDirectory).As<AbsoluteDirectoryPath>();
+
+	private string PathOrCurrentDirectory => string.IsNullOrWhiteSpace(PathString) ? "." : PathString;
+
+	/// <summary>
+	/// Converts the -p path like <see cref="Path"/> does, but prints why and returns null instead of throwing
+	/// when the path can't be represented, such as one containing | &lt; &gt; or longer than 256 characters.
+	/// </summary>
+	internal AbsoluteDirectoryPath? TryGetPath() => TryConvertUserPath(PathOrCurrentDirectory, static p => p.As<AbsoluteDirectoryPath>());
+
+	/// <summary>
+	/// Converts a path the user typed into a semantic path type. ktsu.Semantics.Paths rejects some legal paths
+	/// (| &lt; &gt; on any OS, or over 256 characters), so print why and return null instead of letting the
+	/// <see cref="ArgumentException"/> end the process or the interactive menu.
+	/// </summary>
+	internal static TPath? TryConvertUserPath<TPath>(string pathString, Func<string, TPath> convert) where TPath : class
+	{
+		try
+		{
+			return convert(System.IO.Path.GetFullPath(pathString));
+		}
+		catch (Exception ex) when (ex is ArgumentException or PathTooLongException or NotSupportedException)
+		{
+			Console.WriteLine($"Unsupported path: {pathString}: {ex.Message}");
+			return null;
+		}
+	}
 
 	internal OllamaEndpoint Endpoint
 	{

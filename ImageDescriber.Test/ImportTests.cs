@@ -320,4 +320,64 @@ public class ImportTests
 			File.Delete(file);
 		}
 	}
+	[TestMethod]
+	public void MergeEntriesStoresZeroForANegativeFileSizeFromCsv()
+	{
+		ImageDescription original = new()
+		{
+			Hash = new string('a', 64),
+			SuggestedFileName = "photo.jpg".As<FileName>(),
+			KnownPaths = [Path.Combine(Path.GetTempPath(), "photo.jpg").As<AbsoluteFilePath>()],
+			Model = "llava".As<OllamaModelName>(),
+			DescribedAt = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc),
+			FileSizeBytes = -5,
+			Description = "A photo.",
+		};
+
+		List<ImageDescription> entries = Import.ParseCsv(Export.BuildCsv([original]));
+
+		AssertMergeStoresZeroSize(entries, original.Hash);
+	}
+
+	[TestMethod]
+	public void MergeEntriesStoresZeroForANegativeFileSizeFromJson()
+	{
+		string hash = new('b', 64);
+		string file = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".json");
+		File.WriteAllText(file, $"[{{\"Hash\":\"{hash}\",\"FileSizeBytes\":-5,\"Description\":\"A photo.\"}}]");
+		try
+		{
+			List<ImageDescription>? entries = Import.ImportJson(file.As<AbsoluteFilePath>());
+
+			Assert.IsNotNull(entries);
+			AssertMergeStoresZeroSize(entries, hash);
+		}
+		finally
+		{
+			File.Delete(file);
+		}
+	}
+
+	private static void AssertMergeStoresZeroSize(List<ImageDescription> entries, string hash)
+	{
+		PersistentState originalSettings = Program.Settings;
+		TextWriter originalOut = Console.Out;
+		try
+		{
+			Program.Settings = new PersistentState();
+			using StringWriter output = new();
+			Console.SetOut(output);
+
+			(int newCount, _, _) = Import.MergeEntries(entries);
+
+			Assert.AreEqual(1, newCount);
+			Assert.AreEqual(0, Program.Settings.Descriptions[hash].FileSizeBytes);
+			Assert.Contains("negative file size", output.ToString());
+		}
+		finally
+		{
+			Console.SetOut(originalOut);
+			Program.Settings = originalSettings;
+		}
+	}
 }

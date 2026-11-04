@@ -18,6 +18,12 @@ internal static class ImageScanner
 		".gif".As<FileExtension>(),
 		".bmp".As<FileExtension>(),
 		".webp".As<FileExtension>(),
+	];
+
+	// Ollama can't decode TIFF: its Go engine registers no TIFF decoder and stb_image has none, so a
+	// TIFF sent to it fails, and failures aren't stored, so it would be sent and fail on every scan.
+	private static readonly HashSet<FileExtension> UnsupportedImageExtensions =
+	[
 		".tiff".As<FileExtension>(),
 		".tif".As<FileExtension>(),
 	];
@@ -40,12 +46,23 @@ internal static class ImageScanner
 		};
 
 		List<AbsoluteFilePath> imageFiles = [];
+		int unsupported = 0;
 		foreach (string file in Directory.EnumerateFiles(path.WeakString, "*", options))
 		{
-			if (IsImageExtension(Path.GetExtension(file)))
+			string extension = Path.GetExtension(file);
+			if (IsImageExtension(extension))
 			{
 				imageFiles.Add(file.As<AbsoluteFilePath>());
 			}
+			else if (IsUnsupportedImageExtension(extension))
+			{
+				unsupported++;
+			}
+		}
+
+		if (unsupported > 0)
+		{
+			Console.WriteLine($"Skipped {unsupported} TIFF image(s): Ollama can't decode TIFF. Convert them to PNG or JPEG to describe them.");
 		}
 
 		return imageFiles;
@@ -77,4 +94,8 @@ internal static class ImageScanner
 		// so fold to the lower-case form the set holds before looking it up.
 		return ImageExtensions.Contains(extension.ToLowerInvariant().As<FileExtension>());
 	}
+
+	internal static bool IsUnsupportedImageExtension(string extension) =>
+		!string.IsNullOrEmpty(extension)
+		&& UnsupportedImageExtensions.Contains(extension.ToLowerInvariant().As<FileExtension>());
 }

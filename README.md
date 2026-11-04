@@ -9,7 +9,7 @@ A .NET 10 CLI that uses a local Ollama vision model to generate descriptions and
 
 ## What it does
 
-Recursively scans a directory for images (`.jpg`, `.png`, `.gif`, `.bmp`, `.webp`, `.tiff`), computes a content hash for each file, and asks a local Ollama instance to caption each unique image. Descriptions, suggested filenames, and metadata are persisted in a JSON database keyed by the content hash, so identical images at different paths share one record and re-scanning skips already-described content.
+Recursively scans a directory for images (`.jpg`, `.jpeg`, `.png`, `.gif`, `.bmp`, `.webp`; TIFF is skipped and counted, because Ollama can't decode it), computes a content hash for each file, and asks a local Ollama instance to caption each unique image. Descriptions, suggested filenames, and metadata are persisted in a JSON database keyed by the content hash, so identical images at different paths share one record and re-scanning skips already-described content.
 
 No cloud APIs are called — all inference runs locally against Ollama.
 
@@ -62,7 +62,7 @@ ImageDescriber Stats
 |---|---|
 | `Menu` *(default)* | Interactive console menu. |
 | `Scan` | Hash images in a directory and describe each unique one. |
-| `Search` | Keyword search across stored descriptions and paths. |
+| `Search` | Keyword search across stored descriptions and file names. An entry matches when it contains every keyword, in any order. |
 | `Configure` | Edit endpoint, model, concurrency, and prompt templates. |
 | `Export` | Dump the database to JSON or CSV. |
 | `Import` | Merge a JSON or CSV export back into the database. |
