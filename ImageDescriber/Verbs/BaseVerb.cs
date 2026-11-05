@@ -64,6 +64,25 @@ internal abstract class BaseVerb : ICommand
 		}
 	}
 
+	/// <summary>
+	/// Reads a path typed or pasted at an interactive prompt. Explorer's "Copy as path" and dragging a
+	/// folder into the console both wrap the path in double quotes, which a shell would strip but
+	/// Console.ReadLine keeps, so remove one surrounding pair of matching quotes along with the whitespace.
+	/// </summary>
+	internal static string? ReadPromptPath() => CleanPromptPath(Console.ReadLine());
+
+	/// <inheritdoc cref="ReadPromptPath"/>
+	internal static string? CleanPromptPath(string? input)
+	{
+		string? path = input?.Trim();
+		if (path is { Length: >= 2 } && (path[0] is '"' or '\'') && path[^1] == path[0])
+		{
+			path = path[1..^1].Trim();
+		}
+
+		return path;
+	}
+
 	internal OllamaEndpoint Endpoint
 	{
 		get
