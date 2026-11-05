@@ -98,7 +98,7 @@ internal sealed class Scan : BaseVerb<Scan>
 
 		// Step 3: Hash all files in parallel
 		Console.WriteLine("Hashing image files...");
-		Dictionary<AbsoluteFilePath, string> fileHashes = ImageHasher.HashFiles(imageFiles);
+		Dictionary<AbsoluteFilePath, string> fileHashes = ImageHasher.HashFiles(imageFiles, out IReadOnlyList<string> hashFailures);
 		Console.WriteLine();
 
 		// Step 4: Filter out already-described hashes and deduplicate within this scan
@@ -172,8 +172,11 @@ internal sealed class Scan : BaseVerb<Scan>
 				}
 			});
 
-		PrintFailureSummary(failures);
-		Failed = failures.Count > 0;
+		// An image that couldn't be hashed never reaches the describe stage, so report it here too.
+		// Otherwise a run where files were locked or unreadable ends with no summary and exit code 0.
+		PrintFailureSummary("hash", hashFailures);
+		PrintFailureSummary("describe", failures);
+		Failed = hashFailures.Count > 0 || failures.Count > 0;
 
 		Console.WriteLine();
 		Console.WriteLine("Scan complete.");
@@ -182,7 +185,7 @@ internal sealed class Scan : BaseVerb<Scan>
 		PathString = string.Empty;
 	}
 
-	private static void PrintFailureSummary(IReadOnlyList<string> failures)
+	private static void PrintFailureSummary(string stage, IReadOnlyList<string> failures)
 	{
 		if (failures.Count == 0)
 		{
@@ -190,7 +193,7 @@ internal sealed class Scan : BaseVerb<Scan>
 		}
 
 		Console.WriteLine();
-		Console.WriteLine($"Failed to describe {failures.Count} image(s):");
+		Console.WriteLine($"Failed to {stage} {failures.Count} image(s):");
 		foreach (string failure in failures)
 		{
 			Console.WriteLine($"  {failure}");
