@@ -288,7 +288,7 @@ internal sealed class Scan : BaseVerb<Scan>
 		// stop, in any nesting ("`sunset-beach.png`.", "**sunset-beach.jpg**"). Peel all of it off
 		// before the extension check, so the extension is the last thing left and "sunset." does not
 		// become "sunset..jpg"
-		name = name.Trim(NameDecoration);
+		name = TrimDecoration(name);
 
 		// Strip an image extension the model may have included. A suggestion normally has no
 		// extension, so any other dot is part of the name ("st.-louis-arch", "sunset-at-5.30pm").
@@ -326,9 +326,63 @@ internal sealed class Scan : BaseVerb<Scan>
 		return $"{name}{extension}".As<FileName>();
 	}
 
-	// Wrapping a model puts around a name rather than part of it: quotes, backticks, markdown
-	// emphasis, a closing full stop, and the hyphens the non-portable characters among them became
-	private static readonly char[] NameDecoration = ['"', '\'', '`', '*', '_', '-', '.', ' '];
+	// Wrapping a model puts around a name rather than part of it: quotes (ASCII and typographic),
+	// backticks, markdown emphasis, a closing full stop, comma or semicolon, and the hyphens the
+	// non-portable characters among them became
+	private static readonly char[] NameDecoration =
+	[
+		'"', '\'', '`', '*', '_', '-', '.', ',', ';', ' ',
+		'\u201C', '\u201D', '\u2018', '\u2019', '\u201E', '\u201A', '\u00AB', '\u00BB', '\u2039', '\u203A',
+	];
+
+	// Brackets a model may put around the whole name: "(sunset-beach.jpg)", "「sunset-beach」". Unlike
+	// quotes they are only removed as a pair, so "photo-(1)" keeps its closing bracket
+	private static readonly (char Open, char Close)[] NameBrackets =
+	[
+		('(', ')'), ('[', ']'), ('{', '}'),
+		('\uFF08', '\uFF09'), ('\u300C', '\u300D'), ('\u300E', '\u300F'), ('\u3010', '\u3011'), ('\u3008', '\u3009'), ('\u300A', '\u300B'),
+	];
+
+	// Peels the decoration and enclosing brackets off a name, in any nesting: "“(sunset-beach.jpg)”."
+	private static string TrimDecoration(string name)
+	{
+		string previous;
+		do
+		{
+			previous = name;
+			name = name.Trim(NameDecoration);
+			foreach ((char open, char close) in NameBrackets)
+			{
+				if (name.Length >= 2 && name[0] == open && EnclosesWhole(name, open, close))
+				{
+					name = name[1..^1];
+					break;
+				}
+			}
+		}
+		while (name != previous);
+
+		return name;
+	}
+
+	// True when the bracket opening the name is the one that closes it, so "(a)-(b)" is not unwrapped
+	private static bool EnclosesWhole(string name, char open, char close)
+	{
+		int depth = 0;
+		for (int i = 0; i < name.Length; i++)
+		{
+			if (name[i] == open)
+			{
+				depth++;
+			}
+			else if (name[i] == close && --depth == 0)
+			{
+				return i == name.Length - 1;
+			}
+		}
+
+		return false;
+	}
 
 	// NTFS, ext4 and APFS allow 255 bytes or UTF-16 units per name. Capping the stem well below that,
 	// in UTF-8 bytes, keeps a multibyte name legal everywhere once the extension is added
