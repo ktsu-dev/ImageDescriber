@@ -78,11 +78,45 @@ internal sealed class Search : BaseVerb<Search>
 		query.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
 
 	/// <summary>
-	/// An entry matches when every keyword appears, case-insensitively, in its description or in one of its
-	/// known file names. The keywords may appear in any order and need not be adjacent.
+	/// An entry matches when every keyword starts a word, case-insensitively, in its description or in one of
+	/// its known file names. The keywords may appear in any order and need not be adjacent. A keyword may be
+	/// the start of a longer word ("sun" finds "sunset"), but not a part inside one ("cat" doesn't find "located").
 	/// </summary>
 	internal static bool MatchesAllTerms(ImageDescription description, IReadOnlyCollection<string> terms) =>
 		terms.Count > 0 && terms.All(term =>
-			description.Description.Contains(term, StringComparison.OrdinalIgnoreCase)
-			|| description.KnownPaths.Any(p => p.FileName.Contains(term, StringComparison.OrdinalIgnoreCase)));
+			StartsAWord(description.Description, term)
+			|| description.KnownPaths.Any(p => StartsAWord(p.FileName, term)));
+
+	/// <summary>
+	/// Whether <paramref name="term"/> occurs in <paramref name="text"/>, case-insensitively, where a word
+	/// begins: at the start, or after a character that is not a letter or digit (a space, "-", "_", ".").
+	/// </summary>
+	internal static bool StartsAWord(string text, string term)
+	{
+		if (term.Length == 0)
+		{
+			return false;
+		}
+
+		// A keyword that starts with punctuation ("#tag", ".jpg") has no word start of its own to line up with
+		bool needsBoundary = IsWordChar(term, 0);
+		for (int index = text.IndexOf(term, StringComparison.OrdinalIgnoreCase);
+			index >= 0;
+			index = index + 1 < text.Length ? text.IndexOf(term, index + 1, StringComparison.OrdinalIgnoreCase) : -1)
+		{
+			if (!needsBoundary || index == 0 || !IsWordChar(text, index - 1))
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	// A surrogate half belongs to a letter or symbol outside the BMP, so treat it as part of a word
+	private static bool IsWordChar(string text, int index) =>
+		char.IsLetterOrDigit(text[index])
+		|| char.IsSurrogate(text[index])
+		|| char.GetUnicodeCategory(text[index]) is System.Globalization.UnicodeCategory.NonSpacingMark
+			or System.Globalization.UnicodeCategory.SpacingCombiningMark;
 }

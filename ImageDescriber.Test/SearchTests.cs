@@ -66,6 +66,56 @@ public class SearchTests
 		StringAssert.Contains(output, "0 match(es)");
 	}
 
+	[TestMethod]
+	[DataRow("cat", "A wooden bench located beside a calm lake.")]
+	[DataRow("cat", "A plate of food indicates a celebration.")]
+	[DataRow("cat", "A delicate vase on a vacation table.")]
+	[DataRow("car", "A scarf draped over a chair.")]
+	[DataRow("art", "A party in a garden.")]
+	[DataRow("dog", "A hotdog stand on a corner.")]
+	public void SearchDoesNotMatchAKeywordInsideAnotherWord(string query, string text)
+	{
+		Assert.IsFalse(Search.MatchesAllTerms(EntryAt(text, "IMG_0001.jpg"), Search.SplitQuery(query)));
+	}
+
+	[TestMethod]
+	[DataRow("cat", "A cat asleep on a sofa.")]
+	[DataRow("cat", "Two cats asleep on a sofa.")]
+	[DataRow("Cat", "(cat) on a sofa")]
+	[DataRow("sun", "A sandy beach at sunset.")]
+	[DataRow("car", "A red car-park sign.")]
+	public void SearchMatchesAKeywordAtTheStartOfAWord(string query, string text)
+	{
+		Assert.IsTrue(Search.MatchesAllTerms(EntryAt(text, "IMG_0001.jpg"), Search.SplitQuery(query)));
+	}
+
+	[TestMethod]
+	[DataRow("holiday")]
+	[DataRow("2024")]
+	[DataRow("beach_cat")]
+	[DataRow("cat")]
+	[DataRow("jpg")]
+	public void SearchMatchesAWordOfAFileName(string query)
+	{
+		Assert.IsTrue(Search.MatchesAllTerms(EntryAt("An empty room.", "holiday-2024.beach_cat.jpg"), Search.SplitQuery(query)));
+	}
+
+	[TestMethod]
+	[DataRow("liday")]
+	[DataRow("024")]
+	[DataRow("at")]
+	public void SearchDoesNotMatchAKeywordInsideAFileNameWord(string query)
+	{
+		Assert.IsFalse(Search.MatchesAllTerms(EntryAt("An empty room.", "holiday-2024.beach_cat.jpg"), Search.SplitQuery(query)));
+	}
+
+	private static ImageDescription EntryAt(string description, string fileName) => new()
+	{
+		Hash = new string('e', ImageHasher.HashLength),
+		Description = description,
+		KnownPaths = [Path.Combine(Path.GetTempPath(), fileName).As<AbsoluteFilePath>()],
+	};
+
 	private static void AddBeachEntry()
 	{
 		string hash = new('d', ImageHasher.HashLength);
