@@ -42,10 +42,6 @@ public class ScanTests
 	[DataRow("# sunset-beach", "sunset-beach.jpg")]
 	[DataRow("- sunset-beach", "sunset-beach.jpg")]
 	[DataRow("1. sunset-beach", "sunset-beach.jpg")]
-	[DataRow("Filename (no extension): sunset-beach", "sunset-beach.jpg")]
-	[DataRow("Filename (without extension): sunset-beach", "sunset-beach.jpg")]
-	[DataRow("Option 1: sunset-beach", "sunset-beach.jpg")]
-	[DataRow("**Option 2:** `sunset-beach`", "sunset-beach.jpg")]
 	public void SanitizeFileNameSkipsALeadInAndStripsALabelOrMarkdownMarker(string raw, string expected)
 	{
 		FileName result = Scan.SanitizeFileName(raw, ".jpg".As<FileExtension>());
@@ -55,8 +51,6 @@ public class ScanTests
 
 	[TestMethod]
 	[DataRow("sunset-at-5:30pm", "sunset-at-5-30pm.jpg")]
-	[DataRow("sunset-at-5:30pm-(day-2)", "sunset-at-5-30pm-(day-2).jpg")]
-	[DataRow("Option 1:", "Option 1.jpg")]
 	[DataRow("Filename:", "Filename.jpg")]
 	[DataRow("**sunset-beach**", "sunset-beach.jpg")]
 	public void SanitizeFileNameKeepsANameThatOnlyLooksLikeALabelOrLeadIn(string raw, string expected)
@@ -80,6 +74,28 @@ public class ScanTests
 		FileName result = Scan.SanitizeFileName("a---b----c", ".jpg".As<FileExtension>());
 
 		Assert.AreEqual("a-b-c.jpg", result.WeakString);
+	}
+
+	[TestMethod]
+	[DataRow("Filename (no extension): sunset-beach", "sunset-beach.jpg")]
+	[DataRow("Filename (without extension): sunset-beach", "sunset-beach.jpg")]
+	[DataRow("Option 1: sunset-beach", "sunset-beach.jpg")]
+	[DataRow("**Option 2:** `sunset-beach`", "sunset-beach.jpg")]
+	public void SanitizeFileNameStripsALabelHoldingDigitsOrParentheses(string raw, string expected)
+	{
+		FileName result = Scan.SanitizeFileName(raw, ".jpg".As<FileExtension>());
+
+		Assert.AreEqual(expected, result.WeakString);
+	}
+
+	[TestMethod]
+	[DataRow("sunset-at-5:30pm-(day-2)", "sunset-at-5-30pm-(day-2).jpg")]
+	[DataRow("Option 1:", "Option 1.jpg")]
+	public void SanitizeFileNameKeepsANameThatOnlyLooksLikeALabelWithDigitsOrParentheses(string raw, string expected)
+	{
+		FileName result = Scan.SanitizeFileName(raw, ".jpg".As<FileExtension>());
+
+		Assert.AreEqual(expected, result.WeakString);
 	}
 
 	[TestMethod]
