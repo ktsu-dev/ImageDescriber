@@ -400,14 +400,27 @@ internal sealed class Scan : BaseVerb<Scan>
 			.Select(line => line.Trim())
 			.Where(line => line.Length > 0 && !IsCodeFence(line))];
 
-		// A lead-in ends with a colon and a name doesn't, so skip it when something follows it
-		string name = lines.FirstOrDefault(line => !IsLeadIn(line)) ?? lines.FirstOrDefault() ?? string.Empty;
+		// A lead-in ends with a colon, or is a sentence ("Here is a suggested filename.", "Sure!"),
+		// and a name is neither, so skip it when something follows it. A lone line is kept as is
+		string name = lines.FirstOrDefault(line => !IsLeadIn(line) && !IsSentence(line))
+			?? lines.FirstOrDefault(line => !IsLeadIn(line))
+			?? lines.FirstOrDefault()
+			?? string.Empty;
 
 		name = MarkdownLineMarker.Replace(name, string.Empty);
 		return NameLabel.Replace(name, string.Empty);
 	}
 
 	private static bool IsLeadIn(string line) => line.TrimEnd('*', '_', ' ').EndsWith(':');
+
+	// An intro a model writes before the name: words ending in a full stop, or anything ending in an
+	// exclamation mark ("Sure!"). A single token ending in a full stop is still taken as a name
+	private static bool IsSentence(string line)
+	{
+		string trimmed = line.TrimEnd('*', '_', ' ');
+		return trimmed.EndsWith('!')
+			|| (trimmed.EndsWith('.') && trimmed.Contains(' ', StringComparison.Ordinal));
+	}
 
 	// A heading, bullet or numbered-list marker in front of the name: "# ", "- ", "* ", "1. "
 	private static readonly Regex MarkdownLineMarker = new(@"^(?:#{1,6}|[-*+]|\d+[.)])\s+", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
