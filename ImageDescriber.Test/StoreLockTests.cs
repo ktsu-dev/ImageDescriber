@@ -2,6 +2,9 @@
 
 namespace ktsu.ImageDescriber.Tests;
 
+using System.IO.Abstractions.TestingHelpers;
+
+using ktsu.AppDataStorage;
 using ktsu.ImageDescriber.Verbs;
 
 [TestClass]
@@ -135,6 +138,58 @@ public class StoreLockTests
 		string text = output.ToString();
 		Assert.Contains("No changes.", text);
 		Assert.DoesNotContain(StoreLock.BusyMessage, text);
+	}
+
+	[TestMethod]
+	public void ConfigureSavesOnlyTheAnsweredFieldsOverWhatAnotherRunSavedDuringItsPrompts()
+	{
+		PersistentState originalSettings = Program.Settings;
+		TextReader originalIn = Console.In;
+		TextWriter originalOut = Console.Out;
+		using StringWriter output = new();
+		string hash = new('f', ImageHasher.HashLength);
+
+		// The second answer is given after another run saved a new description and its own concurrency,
+		// which Configure must keep: it was not asked to change either
+		string[] answers = ["", "llava", "", "", ""];
+		int prompt = 0;
+		using PromptReader input = new(() =>
+		{
+			if (prompt == 1)
+			{
+				using StoreLock? concurrent = StoreLock.TryAcquire(lockPath);
+				Assert.IsNotNull(concurrent);
+				PersistentState other = PersistentState.LoadOrCreate();
+				other.Descriptions[hash] = new ImageDescription { Hash = hash, Description = "a dog" };
+				other.MaxConcurrentRequests = 7;
+				other.Save();
+			}
+
+			return answers[prompt++];
+		});
+
+		AppData.ConfigureForTesting(() => new MockFileSystem());
+		try
+		{
+			Program.Settings = PersistentState.LoadOrCreate();
+			Console.SetIn(input);
+			Console.SetOut(output);
+			new Configure().Run();
+
+			PersistentState saved = PersistentState.LoadOrCreate();
+			Assert.AreEqual("llava", saved.OllamaModel.WeakString, output.ToString());
+			Assert.AreEqual(7, saved.MaxConcurrentRequests);
+			Assert.IsTrue(saved.Descriptions.ContainsKey(hash), "Configure overwrote a description saved during its prompts");
+			Assert.AreEqual("llava", Program.Settings.OllamaModel.WeakString);
+			StringAssert.Contains(output.ToString(), "Settings saved.");
+		}
+		finally
+		{
+			AppData.ResetFileSystem();
+			Console.SetIn(originalIn);
+			Console.SetOut(originalOut);
+			Program.Settings = originalSettings;
+		}
 	}
 
 	private sealed class PromptReader(Func<string> answer) : TextReader
