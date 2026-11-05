@@ -77,6 +77,28 @@ public class ScanTests
 	}
 
 	[TestMethod]
+	[DataRow("Filename (no extension): sunset-beach", "sunset-beach.jpg")]
+	[DataRow("Filename (without extension): sunset-beach", "sunset-beach.jpg")]
+	[DataRow("Option 1: sunset-beach", "sunset-beach.jpg")]
+	[DataRow("**Option 2:** `sunset-beach`", "sunset-beach.jpg")]
+	public void SanitizeFileNameStripsALabelHoldingDigitsOrParentheses(string raw, string expected)
+	{
+		FileName result = Scan.SanitizeFileName(raw, ".jpg".As<FileExtension>());
+
+		Assert.AreEqual(expected, result.WeakString);
+	}
+
+	[TestMethod]
+	[DataRow("sunset-at-5:30pm-(day-2)", "sunset-at-5-30pm-(day-2).jpg")]
+	[DataRow("Option 1:", "Option 1.jpg")]
+	public void SanitizeFileNameKeepsANameThatOnlyLooksLikeALabelWithDigitsOrParentheses(string raw, string expected)
+	{
+		FileName result = Scan.SanitizeFileName(raw, ".jpg".As<FileExtension>());
+
+		Assert.AreEqual(expected, result.WeakString);
+	}
+
+	[TestMethod]
 	[DataRow("**sunset-beach.jpg**", ".jpg", "sunset-beach.jpg")]
 	[DataRow("sunset-beach.jpg?", ".jpg", "sunset-beach.jpg")]
 	[DataRow("`sunset-beach.png`.", ".png", "sunset-beach.png")]

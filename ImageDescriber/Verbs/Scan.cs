@@ -412,9 +412,11 @@ internal sealed class Scan : BaseVerb<Scan>
 	// A heading, bullet or numbered-list marker in front of the name: "# ", "- ", "* ", "1. "
 	private static readonly Regex MarkdownLineMarker = new(@"^(?:#{1,6}|[-*+]|\d+[.)])\s+", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
 
-	// A label in front of the name on the same line: "Filename: ", "**Suggested filename:** ".
-	// Only words and spaces, followed by a space, so a time such as "sunset-at-5:30pm" is not a label
-	private static readonly Regex NameLabel = new(@"^[*_]*\p{L}[\p{L} '\u2019]{0,39}[*_]*:[*_]*\s+(?=\S)", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+	// A label in front of the name on the same line: "Filename: ", "**Suggested filename:** ",
+	// "Filename (no extension): ", "Option 1: ". Starts with a letter, holds only words, digits,
+	// spaces and simple punctuation, and must be followed by a space, so a time such as
+	// "sunset-at-5:30pm" is not a label
+	private static readonly Regex NameLabel = new(@"^[*_]*\p{L}[\p{L}\p{Nd} '\u2019(),\-]{0,39}[*_]*:[*_]*\s+(?=\S)", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
 
 	private static bool IsCodeFence(string line) =>
 		line.StartsWith("```", StringComparison.Ordinal)
