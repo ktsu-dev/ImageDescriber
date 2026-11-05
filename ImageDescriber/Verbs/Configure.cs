@@ -11,60 +11,80 @@ using ktsu.Semantics.Strings;
 [Verb("Configure", HelpText = "Configure the Ollama endpoint and model settings.")]
 internal sealed class Configure : BaseVerb<Configure>
 {
-	internal override bool WritesStore => true;
+	// The prompts can wait on the user indefinitely, so Configure takes StoreLock only around the
+	// reload and save in Apply, rather than through BaseVerb for the whole run
+	internal override bool WritesStore => false;
 
 	internal override void Run(Configure options)
 	{
+		PersistentState current = Program.Settings;
 		Console.WriteLine("Current Settings:");
-		Console.WriteLine($"  Endpoint:        {Program.Settings.OllamaEndpoint}");
-		Console.WriteLine($"  Model:           {Program.Settings.OllamaModel}");
-		Console.WriteLine($"  Concurrency:     {Program.Settings.MaxConcurrentRequests}");
-		Console.WriteLine($"  Prompt:          {Program.Settings.DescriptionPrompt[..Math.Min(60, Program.Settings.DescriptionPrompt.Length)]}...");
-		Console.WriteLine($"  Filename Prompt: {Program.Settings.SuggestedFileNamePrompt[..Math.Min(60, Program.Settings.SuggestedFileNamePrompt.Length)]}...");
+		PrintSettings(current);
 		Console.WriteLine();
 
-		Console.Write($"Ollama Endpoint [{Program.Settings.OllamaEndpoint}]: ");
+		Console.Write($"Ollama Endpoint [{current.OllamaEndpoint}]: ");
 		string? endpointInput = Console.ReadLine();
-		Program.Settings.OllamaEndpoint = ChooseEndpoint(endpointInput, Program.Settings.OllamaEndpoint, Console.Out);
+		OllamaEndpoint endpoint = ChooseEndpoint(endpointInput, current.OllamaEndpoint, Console.Out);
+		OllamaEndpoint? newEndpoint = endpoint == current.OllamaEndpoint ? null : endpoint;
 
-		Console.Write($"Ollama Model [{Program.Settings.OllamaModel}]: ");
+		Console.Write($"Ollama Model [{current.OllamaModel}]: ");
 		string? modelInput = Console.ReadLine();
-		if (!string.IsNullOrWhiteSpace(modelInput))
-		{
-			Program.Settings.OllamaModel = modelInput.Trim().As<OllamaModelName>();
-		}
+		OllamaModelName? newModel = string.IsNullOrWhiteSpace(modelInput) ? null : modelInput.Trim().As<OllamaModelName>();
 
-		Console.Write($"Max Concurrent Requests [{Program.Settings.MaxConcurrentRequests}]: ");
+		Console.Write($"Max Concurrent Requests [{current.MaxConcurrentRequests}]: ");
 		string? concurrencyInput = Console.ReadLine();
-		if (!string.IsNullOrWhiteSpace(concurrencyInput) && int.TryParse(concurrencyInput.Trim(), out int concurrency) && concurrency >= 1)
-		{
-			Program.Settings.MaxConcurrentRequests = concurrency;
-		}
+		int? newConcurrency = !string.IsNullOrWhiteSpace(concurrencyInput) && int.TryParse(concurrencyInput.Trim(), out int concurrency) && concurrency >= 1
+			? concurrency
+			: null;
 
-		Console.Write($"Description Prompt [{Program.Settings.DescriptionPrompt[..Math.Min(60, Program.Settings.DescriptionPrompt.Length)]}...]: ");
+		Console.Write($"Description Prompt [{Abbreviate(current.DescriptionPrompt)}...]: ");
 		string? promptInput = Console.ReadLine();
-		if (!string.IsNullOrWhiteSpace(promptInput))
-		{
-			Program.Settings.DescriptionPrompt = promptInput.Trim();
-		}
+		string? newPrompt = string.IsNullOrWhiteSpace(promptInput) ? null : promptInput.Trim();
 
-		Console.Write($"Filename Prompt [{Program.Settings.SuggestedFileNamePrompt[..Math.Min(60, Program.Settings.SuggestedFileNamePrompt.Length)]}...]: ");
+		Console.Write($"Filename Prompt [{Abbreviate(current.SuggestedFileNamePrompt)}...]: ");
 		string? fileNamePromptInput = Console.ReadLine();
-		if (!string.IsNullOrWhiteSpace(fileNamePromptInput))
+		string? newFileNamePrompt = string.IsNullOrWhiteSpace(fileNamePromptInput) ? null : fileNamePromptInput.Trim();
+
+		if (newEndpoint is null && newModel is null && newConcurrency is null && newPrompt is null && newFileNamePrompt is null)
 		{
-			Program.Settings.SuggestedFileNamePrompt = fileNamePromptInput.Trim();
+			Console.WriteLine();
+			Console.WriteLine("No changes.");
+			return;
 		}
 
-		Program.Settings.Save();
+		using StoreLock? storeLock = StoreLock.TryAcquire(StoreLock.StorePath);
+		if (storeLock is null)
+		{
+			Console.WriteLine(StoreLock.BusyMessage);
+			return;
+		}
+
+		// Another run may have saved while the prompts were open, and Save writes back the whole store,
+		// so apply only the answered fields to what is on disk now
+		PersistentState settings = PersistentState.LoadOrCreate();
+		settings.OllamaEndpoint = newEndpoint ?? settings.OllamaEndpoint;
+		settings.OllamaModel = newModel ?? settings.OllamaModel;
+		settings.MaxConcurrentRequests = newConcurrency ?? settings.MaxConcurrentRequests;
+		settings.DescriptionPrompt = newPrompt ?? settings.DescriptionPrompt;
+		settings.SuggestedFileNamePrompt = newFileNamePrompt ?? settings.SuggestedFileNamePrompt;
+		settings.Save();
+		Program.Settings = settings;
 
 		Console.WriteLine();
 		Console.WriteLine("Settings saved.");
-		Console.WriteLine($"  Endpoint:        {Program.Settings.OllamaEndpoint}");
-		Console.WriteLine($"  Model:           {Program.Settings.OllamaModel}");
-		Console.WriteLine($"  Concurrency:     {Program.Settings.MaxConcurrentRequests}");
-		Console.WriteLine($"  Prompt:          {Program.Settings.DescriptionPrompt[..Math.Min(60, Program.Settings.DescriptionPrompt.Length)]}...");
-		Console.WriteLine($"  Filename Prompt: {Program.Settings.SuggestedFileNamePrompt[..Math.Min(60, Program.Settings.SuggestedFileNamePrompt.Length)]}...");
+		PrintSettings(settings);
 	}
+
+	private static void PrintSettings(PersistentState settings)
+	{
+		Console.WriteLine($"  Endpoint:        {settings.OllamaEndpoint}");
+		Console.WriteLine($"  Model:           {settings.OllamaModel}");
+		Console.WriteLine($"  Concurrency:     {settings.MaxConcurrentRequests}");
+		Console.WriteLine($"  Prompt:          {Abbreviate(settings.DescriptionPrompt)}...");
+		Console.WriteLine($"  Filename Prompt: {Abbreviate(settings.SuggestedFileNamePrompt)}...");
+	}
+
+	private static string Abbreviate(string prompt) => prompt[..Math.Min(60, prompt.Length)];
 
 	/// <summary>
 	/// Returns the normalized endpoint the user typed, or <paramref name="current"/> when they
