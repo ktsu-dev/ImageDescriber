@@ -35,7 +35,7 @@ internal sealed class Export : BaseVerb<Export>
 		if (string.IsNullOrWhiteSpace(OutputPath))
 		{
 			Console.Write("Enter the output file path (.json or .csv): ");
-			string? input = Console.ReadLine()?.Trim();
+			string? input = ReadPromptPath();
 			if (string.IsNullOrEmpty(input))
 			{
 				Console.WriteLine("No path provided. Aborting.");
