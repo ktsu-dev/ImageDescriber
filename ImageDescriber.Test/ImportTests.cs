@@ -379,6 +379,34 @@ public class ImportTests
 	}
 
 	[TestMethod]
+	[DataRow(".json")]
+	[DataRow(".csv")]
+	public void ImportJsonAndImportCsvReturnNullForAPathTheyAreDeniedAccessTo(string extension)
+	{
+		// Opening a directory as a file raises UnauthorizedAccessException on every platform,
+		// whoever runs the test, which a file mode cannot promise under root.
+		TextWriter originalOut = Console.Out;
+		string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + extension);
+		Directory.CreateDirectory(directory);
+		try
+		{
+			using StringWriter output = new();
+			Console.SetOut(output);
+
+			AbsoluteFilePath path = directory.As<AbsoluteFilePath>();
+			List<ImageDescription>? entries = extension == ".json" ? Import.ImportJson(path) : Import.ImportCsv(path);
+
+			Assert.IsNull(entries);
+			Assert.Contains($"Error: cannot read {directory}: ", output.ToString());
+		}
+		finally
+		{
+			Console.SetOut(originalOut);
+			Directory.Delete(directory);
+		}
+	}
+
+	[TestMethod]
 	public void MergeEntriesStoresZeroForANegativeFileSizeFromCsv()
 	{
 		ImageDescription original = new()
