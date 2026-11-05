@@ -62,14 +62,25 @@ internal sealed class Import : BaseVerb<Import>
 			return;
 		}
 
-		List<ImageDescription>? entries = LoadEntries(inputFile);
+		List<ImageDescription>? entries = LoadEntries(inputFile, out int unreadableCount);
 		if (entries is null)
 		{
 			Failed = true;
 			return;
 		}
 
+		// Every data row was unreadable, so the file is not an export this tool can read. Saying
+		// "Skipped: 0" and exiting 0 would make it look like a clean no-op to a script.
+		if (entries.Count == 0 && unreadableCount > 0)
+		{
+			Console.WriteLine($"Import failed: none of the {unreadableCount} data row(s) in {inputFile} could be read.");
+			Console.WriteLine($"  Skipped:         {unreadableCount}");
+			Failed = true;
+			return;
+		}
+
 		(int newCount, int updatedCount, int skippedCount) = MergeEntries(entries);
+		skippedCount += unreadableCount;
 
 		Program.Settings.Save();
 
@@ -80,14 +91,15 @@ internal sealed class Import : BaseVerb<Import>
 		Console.WriteLine($"  Total in database: {Program.Settings.Descriptions.Count}");
 	}
 
-	private static List<ImageDescription>? LoadEntries(AbsoluteFilePath inputFile)
+	private static List<ImageDescription>? LoadEntries(AbsoluteFilePath inputFile, out int unreadableCount)
 	{
+		unreadableCount = 0;
 		switch (inputFile.FileExtension.WeakString.ToUpperInvariant())
 		{
 			case ".JSON":
 				return ImportJson(inputFile);
 			case ".CSV":
-				return ImportCsv(inputFile);
+				return ImportCsv(inputFile, out unreadableCount);
 			default:
 				Console.WriteLine("Error: Input file must have .json or .csv extension.");
 				return null;
@@ -199,12 +211,19 @@ internal sealed class Import : BaseVerb<Import>
 		}
 	}
 
-	private static List<ImageDescription> ImportCsv(AbsoluteFilePath inputPath) =>
-		ParseCsv(File.ReadAllText(inputPath.WeakString));
+	private static List<ImageDescription> ImportCsv(AbsoluteFilePath inputPath, out int unreadableCount) =>
+		ParseCsv(File.ReadAllText(inputPath.WeakString), out unreadableCount);
 
-	internal static List<ImageDescription> ParseCsv(string text)
+	internal static List<ImageDescription> ParseCsv(string text) => ParseCsv(text, out _);
+
+	/// <summary>
+	/// Parses an exported CSV. <paramref name="unreadableCount"/> is the number of data rows
+	/// dropped because they were short or held an unparsable field, so the caller can report them.
+	/// </summary>
+	internal static List<ImageDescription> ParseCsv(string text, out int unreadableCount)
 	{
 		List<ImageDescription> entries = [];
+		unreadableCount = 0;
 
 		// Parse the whole text rather than line by line, because a quoted field may span lines.
 		List<(int LineNumber, List<string> Fields)> records = [.. ParseCsvRecords(text)
@@ -224,6 +243,7 @@ internal sealed class Import : BaseVerb<Import>
 				if (fields.Count < 7)
 				{
 					Console.WriteLine($"  Skipping line {lineNumber}: not enough fields.");
+					unreadableCount++;
 					continue;
 				}
 
@@ -250,14 +270,17 @@ internal sealed class Import : BaseVerb<Import>
 			catch (FormatException ex)
 			{
 				Console.WriteLine($"  Skipping line {lineNumber}: {ex.Message}");
+				unreadableCount++;
 			}
 			catch (OverflowException ex)
 			{
 				Console.WriteLine($"  Skipping line {lineNumber}: {ex.Message}");
+				unreadableCount++;
 			}
 			catch (ArgumentException ex)
 			{
 				Console.WriteLine($"  Skipping line {lineNumber}: {ex.Message}");
+				unreadableCount++;
 			}
 		}
 

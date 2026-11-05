@@ -380,4 +380,80 @@ public class ImportTests
 			Program.Settings = originalSettings;
 		}
 	}
+
+	private static string CsvWithRows(params string[] dataRows)
+	{
+		string header = Export.BuildCsv([]).Split('\n')[0].TrimEnd('\r');
+		return string.Join("\n", [header, .. dataRows]) + "\n";
+	}
+
+	private static string GoodCsvRow(char hashChar) =>
+		$"{new string(hashChar, 64)},photo.jpg,,llava,2026-01-02T03:04:05.0000000Z,10,A photo.";
+
+	private static readonly string[] UnreadableCsvRows =
+	[
+		$"{new string('a', 64)},photo.jpg,,llava,not-a-date,10,A photo.",
+		$"{new string('b', 64)},photo.jpg,,llava,2026-01-02T03:04:05.0000000Z,12x,A photo.",
+		$"{new string('c', 64)},photo.jpg",
+	];
+
+	[TestMethod]
+	public void ParseCsvCountsEveryUnreadableRow()
+	{
+		List<ImageDescription> entries = Import.ParseCsv(CsvWithRows(UnreadableCsvRows), out int unreadableCount);
+
+		Assert.IsEmpty(entries);
+		Assert.AreEqual(3, unreadableCount);
+	}
+
+	[TestMethod]
+	public void ParseCsvKeepsTheGoodRowsAndCountsTheBadOnes()
+	{
+		List<ImageDescription> entries = Import.ParseCsv(
+			CsvWithRows(GoodCsvRow('d'), UnreadableCsvRows[0], GoodCsvRow('e'), UnreadableCsvRows[2]),
+			out int unreadableCount);
+
+		Assert.HasCount(2, entries);
+		Assert.AreEqual(new string('d', 64), entries[0].Hash);
+		Assert.AreEqual(new string('e', 64), entries[1].Hash);
+		Assert.AreEqual(2, unreadableCount);
+	}
+
+	[TestMethod]
+	public void ParseCsvCountsNothingForAValidExport()
+	{
+		List<ImageDescription> entries = Import.ParseCsv(CsvWithRows(GoodCsvRow('d'), GoodCsvRow('e')), out int unreadableCount);
+
+		Assert.HasCount(2, entries);
+		Assert.AreEqual(0, unreadableCount);
+	}
+
+	[TestMethod]
+	public void RunFailsAndReportsTheSkippedRowsWhenNoCsvRowCanBeRead()
+	{
+		PersistentState originalSettings = Program.Settings;
+		TextWriter originalOut = Console.Out;
+		string file = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".csv");
+		File.WriteAllText(file, CsvWithRows(UnreadableCsvRows));
+		try
+		{
+			Program.Settings = new PersistentState();
+			using StringWriter output = new();
+			Console.SetOut(output);
+
+			Import import = new();
+			import.Run(new Import { InputPath = file });
+
+			Assert.IsTrue(import.Failed, output.ToString());
+			Assert.IsEmpty(Program.Settings.Descriptions);
+			Assert.Contains("Skipped:         3", output.ToString());
+			Assert.DoesNotContain("Import complete.", output.ToString());
+		}
+		finally
+		{
+			Console.SetOut(originalOut);
+			Program.Settings = originalSettings;
+			File.Delete(file);
+		}
+	}
 }
