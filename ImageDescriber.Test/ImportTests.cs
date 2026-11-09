@@ -245,6 +245,39 @@ public class ImportTests
 	}
 
 	[TestMethod]
+	public void JsonExportHasNoByteOrderMarkAndImportsBack()
+	{
+		ImageDescription original = new()
+		{
+			Hash = new string('a', 64),
+			SuggestedFileName = "dog-on-beach.jpg".As<FileName>(),
+			KnownPaths = [Path.Combine(Path.GetTempPath(), "a.jpg").As<AbsoluteFilePath>()],
+			Model = "llava".As<OllamaModelName>(),
+			DescribedAt = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc),
+			FileSizeBytes = 1,
+			Description = "A dog on a beach.",
+		};
+		string file = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".json");
+		try
+		{
+			Export.ExportJson(file.As<AbsoluteFilePath>(), new() { [original.Hash] = original });
+
+			// A byte order mark makes Python's json.load and Node's JSON.parse reject the file
+			byte[] bytes = File.ReadAllBytes(file);
+			Assert.AreEqual((byte)'[', bytes[0]);
+
+			List<ImageDescription>? entries = Import.ImportJson(file.As<AbsoluteFilePath>());
+			Assert.IsNotNull(entries);
+			Assert.HasCount(1, entries);
+			Assert.AreEqual(original.Hash, entries[0].Hash);
+		}
+		finally
+		{
+			File.Delete(file);
+		}
+	}
+
+	[TestMethod]
 	public void CsvExportThenImportKeepsPathsThatContainTheOldSeparator()
 	{
 		string folder = Path.Combine(Path.GetTempPath(), "Photos", "Smith; Jones wedding");
