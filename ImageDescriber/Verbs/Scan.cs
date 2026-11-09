@@ -113,9 +113,8 @@ internal sealed class Scan : BaseVerb<Scan>
 			if (descriptions.TryGetValue(kvp.Value, out ImageDescription? existing))
 			{
 				skippedCount++;
-				if (!existing.KnownPaths.Contains(kvp.Key))
+				if (RecordKnownPath(existing, kvp.Key))
 				{
-					existing.KnownPaths.Add(kvp.Key);
 					newPathCount++;
 				}
 			}
@@ -180,6 +179,24 @@ internal sealed class Scan : BaseVerb<Scan>
 		Console.WriteLine($"Total descriptions in database: {Program.Settings.Descriptions.Count}");
 
 		PathString = string.Empty;
+	}
+
+	/// <summary>
+	/// Records a path an already-described image was found at, unless it already has a path naming
+	/// the same file.
+	/// </summary>
+	/// <param name="existing">The stored description of the image.</param>
+	/// <param name="path">Where this scan found it.</param>
+	/// <returns>True when the path was new and has been added.</returns>
+	internal static bool RecordKnownPath(ImageDescription existing, AbsoluteFilePath path)
+	{
+		if (KnownPathComparison.ContainsSame(existing.KnownPaths, path))
+		{
+			return false;
+		}
+
+		existing.KnownPaths.Add(path);
+		return true;
 	}
 
 	private static void PrintFailureSummary(IReadOnlyList<string> failures)

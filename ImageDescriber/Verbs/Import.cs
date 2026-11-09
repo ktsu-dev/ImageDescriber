@@ -168,8 +168,13 @@ internal sealed class Import : BaseVerb<Import>
 	internal static bool MergeKnownPaths(ImageDescription source, ImageDescription target)
 	{
 		bool pathsAdded = false;
-		foreach (AbsoluteFilePath path in source.KnownPaths.Where(p => !target.KnownPaths.Contains(p)))
+		foreach (AbsoluteFilePath path in source.KnownPaths)
 		{
+			if (KnownPathComparison.ContainsSame(target.KnownPaths, path))
+			{
+				continue;
+			}
+
 			target.KnownPaths.Add(path);
 			pathsAdded = true;
 		}
