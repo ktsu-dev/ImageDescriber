@@ -293,9 +293,10 @@ internal sealed class Scan : BaseVerb<Scan>
 		// Strip an image extension the model may have included. A suggestion normally has no
 		// extension, so any other dot is part of the name ("st.-louis-arch", "sunset-at-5.30pm").
 		// Sliced off by hand rather than with Path.GetFileNameWithoutExtension, which would also drop
-		// anything before a "\" on Windows
+		// anything before a "\" on Windows. TIFF counts too: the scan skips it, but a model that says
+		// ".tiff" still means it as the extension, not as part of the name
 		int extensionStart = name.LastIndexOf('.');
-		if (extensionStart >= 0 && ImageScanner.IsImageExtension(name[extensionStart..]))
+		if (extensionStart >= 0 && ImageScanner.IsKnownImageExtension(name[extensionStart..]))
 		{
 			name = name[..extensionStart];
 		}

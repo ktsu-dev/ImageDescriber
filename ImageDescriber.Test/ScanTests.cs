@@ -69,6 +69,18 @@ public class ScanTests
 	}
 
 	[TestMethod]
+	[DataRow("sunset-beach.tiff")]
+	[DataRow("sunset-beach.TIF")]
+	public void SanitizeFileNameStripsATiffExtensionThoughScansSkipTiff(string raw)
+	{
+		// TIFF moved out of the scannable extensions in #234, which left ".tiff" on the name and gave
+		// "sunset-beach.tiff.jpg"
+		FileName result = Scan.SanitizeFileName(raw, ".jpg".As<FileExtension>());
+
+		Assert.AreEqual("sunset-beach.jpg", result.WeakString);
+	}
+
+	[TestMethod]
 	public void SanitizeFileNameCollapsesMultipleHyphens()
 	{
 		FileName result = Scan.SanitizeFileName("a---b----c", ".jpg".As<FileExtension>());
