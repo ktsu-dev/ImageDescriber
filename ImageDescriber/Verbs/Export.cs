@@ -82,13 +82,18 @@ internal sealed class Export : BaseVerb<Export>
 		Console.WriteLine($"Exported {descriptions.Count} description(s) to {outputFile}");
 	}
 
-	private static void ExportJson(AbsoluteFilePath outputPath, Dictionary<string, ImageDescription> descriptions)
+	internal static void ExportJson(AbsoluteFilePath outputPath, Dictionary<string, ImageDescription> descriptions)
 	{
 		ImageDescription[] entries = [.. descriptions.Values];
 		string json = JsonSerializer.Serialize(entries, JsonOptions);
-		File.WriteAllText(outputPath.WeakString, json, Encoding.UTF8);
+
+		// No byte order mark: RFC 8259 forbids one, and Python's json.load and Node's JSON.parse
+		// reject a file that starts with it
+		File.WriteAllText(outputPath.WeakString, json, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
 	}
 
+	// Encoding.UTF8 writes a byte order mark, which is what makes Excel read the CSV as UTF-8 rather
+	// than the system code page, so non-ASCII descriptions and paths open intact
 	private static void ExportCsv(AbsoluteFilePath outputPath, Dictionary<string, ImageDescription> descriptions) =>
 		File.WriteAllText(outputPath.WeakString, BuildCsv(descriptions.Values), Encoding.UTF8);
 
