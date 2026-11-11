@@ -42,6 +42,10 @@ public class ScanTests
 	[DataRow("# sunset-beach", "sunset-beach.jpg")]
 	[DataRow("- sunset-beach", "sunset-beach.jpg")]
 	[DataRow("1. sunset-beach", "sunset-beach.jpg")]
+	[DataRow("Here is a suggested filename for this image.\nsunset-beach", "sunset-beach.jpg")]
+	[DataRow("Sure! Here's a filename.\n\n`sunset-beach`", "sunset-beach.jpg")]
+	[DataRow("Sure!\nsunset-beach", "sunset-beach.jpg")]
+	[DataRow("**Here you go!**\n\n```\nsunset-beach\n```", "sunset-beach.jpg")]
 	public void SanitizeFileNameSkipsALeadInAndStripsALabelOrMarkdownMarker(string raw, string expected)
 	{
 		FileName result = Scan.SanitizeFileName(raw, ".jpg".As<FileExtension>());
@@ -53,6 +57,10 @@ public class ScanTests
 	[DataRow("sunset-at-5:30pm", "sunset-at-5-30pm.jpg")]
 	[DataRow("Filename:", "Filename.jpg")]
 	[DataRow("**sunset-beach**", "sunset-beach.jpg")]
+	[DataRow("st.-louis-arch", "st.-louis-arch.jpg")]
+	[DataRow("A sunset over the beach.", "A sunset over the beach.jpg")]
+	[DataRow("A sunset over the beach.\nIt shows the sea at dusk.", "A sunset over the beach.jpg")]
+	[DataRow("sunset-beach.\nThis name describes the scene.", "sunset-beach.jpg")]
 	public void SanitizeFileNameKeepsANameThatOnlyLooksLikeALabelOrLeadIn(string raw, string expected)
 	{
 		FileName result = Scan.SanitizeFileName(raw, ".jpg".As<FileExtension>());
