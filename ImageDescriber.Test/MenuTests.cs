@@ -109,6 +109,74 @@ public class MenuTests
 	}
 
 	[TestMethod]
+	[DataRow(".json")]
+	[DataRow(".csv")]
+	public void ExportToAMissingFolderReportsItAndTheMenuCarriesOn(string extension)
+	{
+		string missing = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString(), $"out{extension}");
+		string outputFile = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}{extension}");
+		Action export = Menu.CreateVerbAction(typeof(Export));
+		try
+		{
+			// Two menu runs: the failed write must print an error and leave the session able to export again
+			string text = RunWithConsole(export, $"{missing}\n{outputFile}\n");
+
+			Assert.Contains($"Error: cannot write {missing}: ", text);
+			Assert.IsFalse(File.Exists(missing));
+			Assert.Contains($"Exported 1 description(s) to {outputFile}", text);
+			Assert.IsTrue(File.Exists(outputFile));
+		}
+		finally
+		{
+			File.Delete(outputFile);
+		}
+	}
+
+	[TestMethod]
+	public void ExportToALockedFileReportsItWithoutThrowing()
+	{
+		string outputFile = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.csv");
+		Export export = new() { OutputPath = outputFile };
+		try
+		{
+			string text;
+			using (new FileStream(outputFile, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None))
+			{
+				text = RunWithConsole(export, "\n");
+			}
+
+			Assert.IsTrue(export.Failed, text);
+			Assert.Contains($"Error: cannot write {outputFile}: ", text);
+			Assert.DoesNotContain("Exported", text);
+		}
+		finally
+		{
+			File.Delete(outputFile);
+		}
+	}
+
+	[TestMethod]
+	public void ExportToAPathItIsDeniedReportsItWithoutThrowing()
+	{
+		// Writing to a directory as if it were a file raises UnauthorizedAccessException on every
+		// platform, even as root, where a read-only file mode would not stop the write.
+		string folder = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.json");
+		Directory.CreateDirectory(folder);
+		Export export = new() { OutputPath = folder };
+		try
+		{
+			string text = RunWithConsole(export, "\n");
+
+			Assert.IsTrue(export.Failed, text);
+			Assert.Contains($"Error: cannot write {folder}: ", text);
+		}
+		finally
+		{
+			Directory.Delete(folder);
+		}
+	}
+
+	[TestMethod]
 	public void ExportRunWithAnEmptyAnswerAbortsCleanly()
 	{
 		string text = RunWithConsole(new Export(), "\n");

@@ -65,21 +65,45 @@ internal sealed class Export : BaseVerb<Export>
 			return;
 		}
 
-		switch (outputFile.FileExtension.WeakString.ToUpperInvariant())
+		Action? write = outputFile.FileExtension.WeakString.ToUpperInvariant() switch
 		{
-			case ".JSON":
-				ExportJson(outputFile, descriptions);
-				break;
-			case ".CSV":
-				ExportCsv(outputFile, descriptions);
-				break;
-			default:
-				Console.WriteLine("Error: Output file must have .json or .csv extension.");
-				Failed = true;
-				return;
+			".JSON" => () => ExportJson(outputFile, descriptions),
+			".CSV" => () => ExportCsv(outputFile, descriptions),
+			_ => null,
+		};
+		if (write is null)
+		{
+			Console.WriteLine("Error: Output file must have .json or .csv extension.");
+			Failed = true;
+			return;
+		}
+
+		if (!TryWriteOutput(outputFile, write))
+		{
+			Failed = true;
+			return;
 		}
 
 		Console.WriteLine($"Exported {descriptions.Count} description(s) to {outputFile}");
+	}
+
+	/// <summary>
+	/// Writes the export, or prints why it couldn't and returns false: a missing folder, a read-only
+	/// location, or a file another program holds open (such as the previous CSV still open in Excel)
+	/// must not end the process or the interactive menu with an unhandled exception.
+	/// </summary>
+	private static bool TryWriteOutput(AbsoluteFilePath outputPath, Action write)
+	{
+		try
+		{
+			write();
+			return true;
+		}
+		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+		{
+			Console.WriteLine($"Error: cannot write {outputPath}: {ex.Message}");
+			return false;
+		}
 	}
 
 	internal static void ExportJson(AbsoluteFilePath outputPath, Dictionary<string, ImageDescription> descriptions)
