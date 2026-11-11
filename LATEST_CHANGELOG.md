@@ -1,6 +1,6 @@
-## v1.2.16 (patch)
+## v1.2.17 (patch)
 
-Changes since v1.2.15:
+Changes since v1.2.16:
 
-- Report an export file that can't be written instead of crashing [patch] (#263) (matt-edmondson)
+- Count unreadable CSV rows as skipped, and fail an import that reads none [patch] (#254) (matt-edmondson)
 
