@@ -146,10 +146,17 @@ public class ScanTests
 	[DataRow("sunset-beach;", ".jpg", "sunset-beach.jpg")]
 	[DataRow("\u300Csunset-beach\u300D", ".jpg", "sunset-beach.jpg")]
 	[DataRow("\u201C(sunset-beach.jpg)\u201D.", ".jpg", "sunset-beach.jpg")]
+	[DataRow("`sunset-beach`.jpg", ".jpg", "sunset-beach.jpg")]
+	[DataRow("'sunset-beach'.jpg", ".jpg", "sunset-beach.jpg")]
+	[DataRow("Filename: `sunset-beach`.png", ".jpg", "sunset-beach.jpg")]
+	[DataRow("`sunset-beach`", ".jpg", "sunset-beach.jpg")]
+	[DataRow("\u201Csunset-beach\u201D.jpg", ".jpg", "sunset-beach.jpg")]
 	public void SanitizeFileNameStripsAnExtensionWrappedInFormattingOrPunctuation(string raw, string extension, string expected)
 	{
 		// The extension used to be checked before the wrapping was removed, so "sunset-beach.jpg**"
-		// had no recognisable extension, lost its "**" later, and had ".jpg" appended a second time
+		// had no recognisable extension, lost its "**" later, and had ".jpg" appended a second time.
+		// Wrapping can also sit inside the extension ("`sunset-beach`.jpg"), where only the trim after
+		// the extension is cut can reach its closing mark
 		FileName result = Scan.SanitizeFileName(raw, extension.As<FileExtension>());
 
 		Assert.AreEqual(expected, result.WeakString);
