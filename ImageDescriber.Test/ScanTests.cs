@@ -549,6 +549,113 @@ public class ScanTests
 	}
 
 	[TestMethod]
+	public void HashFilesReportsFilesThatCannotBeRead()
+	{
+		string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+		Directory.CreateDirectory(tempDir);
+
+		try
+		{
+			AbsoluteFilePath real = Path.Combine(tempDir, "real.jpg").As<AbsoluteFilePath>();
+			AbsoluteFilePath missing = Path.Combine(tempDir, "broken.jpg").As<AbsoluteFilePath>();
+			File.WriteAllBytes(real.WeakString, [0xFF, 0xD8]);
+
+			_ = ImageHasher.HashFiles([real, missing], out IReadOnlyList<string> failures);
+
+			Assert.HasCount(1, failures);
+			Assert.StartsWith($"{missing}: ", failures[0]);
+		}
+		finally
+		{
+			Directory.Delete(tempDir, true);
+		}
+	}
+
+	[TestMethod]
+	public void ScanFailsAndNamesAnImageThatCannotBeHashed()
+	{
+		string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+		Directory.CreateDirectory(tempDir);
+		string unreadable = Path.Combine(tempDir, "locked.jpg");
+		FileStream? exclusive = null;
+		try
+		{
+			// Windows refuses to open a file another handle holds with FileShare.None. Elsewhere that
+			// doesn't stop a read, so use a dangling link, which is listed but can't be opened.
+			if (OperatingSystem.IsWindows())
+			{
+				exclusive = new FileStream(unreadable, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None);
+			}
+			else
+			{
+				File.CreateSymbolicLink(unreadable, Path.Combine(tempDir, "gone.jpg"));
+			}
+
+			(bool failed, string text) = RunScanWithKnownImage(tempDir);
+
+			Assert.IsTrue(failed, text);
+			Assert.Contains("Failed to hash 1 image(s):", text);
+			Assert.Contains($"  {unreadable}: ", text);
+			Assert.Contains("Scan complete.", text);
+		}
+		finally
+		{
+			exclusive?.Dispose();
+			Directory.Delete(tempDir, true);
+		}
+	}
+
+	[TestMethod]
+	public void ScanSucceedsWhenEveryImageHashes()
+	{
+		string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+		Directory.CreateDirectory(tempDir);
+		try
+		{
+			(bool failed, string text) = RunScanWithKnownImage(tempDir);
+
+			Assert.IsFalse(failed, text);
+			Assert.DoesNotContain("Failed to", text);
+		}
+		finally
+		{
+			Directory.Delete(tempDir, true);
+		}
+	}
+
+	/// <summary>
+	/// Runs Scan over <paramref name="tempDir"/> after adding known.jpg, which the store already
+	/// describes at that path, so the run neither calls the model for it nor saves the real app data.
+	/// </summary>
+	private static (bool Failed, string Output) RunScanWithKnownImage(string tempDir)
+	{
+		AbsoluteFilePath known = Path.Combine(tempDir, "known.jpg").As<AbsoluteFilePath>();
+		File.WriteAllBytes(known.WeakString, [0xFF, 0xD8]);
+		string hash = ImageHasher.ComputeHash(known);
+
+		PersistentState originalSettings = Program.Settings;
+		TextWriter originalOut = Console.Out;
+		using HttpListener listener = StartFakeOllama(out string endpoint);
+		using StringWriter output = new();
+		try
+		{
+			Program.Settings = new PersistentState();
+			Program.Settings.Descriptions[hash] = new ImageDescription { Hash = hash, KnownPaths = [known], Description = "known" };
+			Console.SetOut(output);
+
+			Scan scan = new() { PathString = tempDir, EndpointString = endpoint, ModelString = "test-model" };
+			scan.Run(scan);
+			return (scan.Failed, output.ToString());
+		}
+		finally
+		{
+			Console.SetOut(originalOut);
+			Program.Settings = originalSettings;
+			listener.Stop();
+		}
+	}
+
+	[TestMethod]
 	public void DescribeImagesContinuesPastPerImageFailures()
 	{
 		string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
