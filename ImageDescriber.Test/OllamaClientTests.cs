@@ -85,4 +85,26 @@ public class OllamaClientTests
 		Assert.AreEqual("http://old:1", chosen.WeakString);
 		Assert.Contains("\"not a url\" is not an http or https address. Keeping http://old:1.", output.ToString());
 	}
+
+	[TestMethod]
+	public void ReadAnswerReturnsAFinishedAnswer() =>
+		Assert.AreEqual("a dog", OllamaClient.ReadAnswer(new OllamaResponse { Response = "a dog", DoneReason = "stop" }));
+
+	[TestMethod]
+	public void ReadAnswerAcceptsAnAnswerWithNoDoneReason() =>
+		Assert.AreEqual("a dog", OllamaClient.ReadAnswer(new OllamaResponse { Response = "a dog" }));
+
+	[TestMethod]
+	[DataRow("")]
+	[DataRow("  \n\t")]
+	public void ReadAnswerRejectsAnEmptyAnswer(string answer) =>
+		Assert.ThrowsExactly<InvalidDataException>(() => OllamaClient.ReadAnswer(new OllamaResponse { Response = answer, DoneReason = "stop" }));
+
+	[TestMethod]
+	public void ReadAnswerRejectsAMissingResponse() =>
+		Assert.ThrowsExactly<InvalidDataException>(() => OllamaClient.ReadAnswer(null));
+
+	[TestMethod]
+	public void ReadAnswerRejectsAnAnswerCutOffAtTheTokenLimit() =>
+		Assert.ThrowsExactly<InvalidDataException>(() => OllamaClient.ReadAnswer(new OllamaResponse { Response = "A dog on a", DoneReason = "length" }));
 }

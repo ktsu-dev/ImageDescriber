@@ -35,7 +35,7 @@ internal sealed class Export : BaseVerb<Export>
 		if (string.IsNullOrWhiteSpace(OutputPath))
 		{
 			Console.Write("Enter the output file path (.json or .csv): ");
-			string? input = Console.ReadLine()?.Trim();
+			string? input = ReadPromptPath();
 			if (string.IsNullOrEmpty(input))
 			{
 				Console.WriteLine("No path provided. Aborting.");
@@ -65,30 +65,59 @@ internal sealed class Export : BaseVerb<Export>
 			return;
 		}
 
-		switch (outputFile.FileExtension.WeakString.ToUpperInvariant())
+		Action? write = outputFile.FileExtension.WeakString.ToUpperInvariant() switch
 		{
-			case ".JSON":
-				ExportJson(outputFile, descriptions);
-				break;
-			case ".CSV":
-				ExportCsv(outputFile, descriptions);
-				break;
-			default:
-				Console.WriteLine("Error: Output file must have .json or .csv extension.");
-				Failed = true;
-				return;
+			".JSON" => () => ExportJson(outputFile, descriptions),
+			".CSV" => () => ExportCsv(outputFile, descriptions),
+			_ => null,
+		};
+		if (write is null)
+		{
+			Console.WriteLine("Error: Output file must have .json or .csv extension.");
+			Failed = true;
+			return;
+		}
+
+		if (!TryWriteOutput(outputFile, write))
+		{
+			Failed = true;
+			return;
 		}
 
 		Console.WriteLine($"Exported {descriptions.Count} description(s) to {outputFile}");
 	}
 
-	private static void ExportJson(AbsoluteFilePath outputPath, Dictionary<string, ImageDescription> descriptions)
+	/// <summary>
+	/// Writes the export, or prints why it couldn't and returns false: a missing folder, a read-only
+	/// location, or a file another program holds open (such as the previous CSV still open in Excel)
+	/// must not end the process or the interactive menu with an unhandled exception.
+	/// </summary>
+	private static bool TryWriteOutput(AbsoluteFilePath outputPath, Action write)
+	{
+		try
+		{
+			write();
+			return true;
+		}
+		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+		{
+			Console.WriteLine($"Error: cannot write {outputPath}: {ex.Message}");
+			return false;
+		}
+	}
+
+	internal static void ExportJson(AbsoluteFilePath outputPath, Dictionary<string, ImageDescription> descriptions)
 	{
 		ImageDescription[] entries = [.. descriptions.Values];
 		string json = JsonSerializer.Serialize(entries, JsonOptions);
-		File.WriteAllText(outputPath.WeakString, json, Encoding.UTF8);
+
+		// No byte order mark: RFC 8259 forbids one, and Python's json.load and Node's JSON.parse
+		// reject a file that starts with it
+		File.WriteAllText(outputPath.WeakString, json, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
 	}
 
+	// Encoding.UTF8 writes a byte order mark, which is what makes Excel read the CSV as UTF-8 rather
+	// than the system code page, so non-ASCII descriptions and paths open intact
 	private static void ExportCsv(AbsoluteFilePath outputPath, Dictionary<string, ImageDescription> descriptions) =>
 		File.WriteAllText(outputPath.WeakString, BuildCsv(descriptions.Values), Encoding.UTF8);
 

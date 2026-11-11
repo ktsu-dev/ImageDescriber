@@ -14,9 +14,17 @@ internal static class ImageHasher
 {
 	private static readonly Lock ConsoleLock = new();
 
-	internal static Dictionary<AbsoluteFilePath, string> HashFiles(IReadOnlyList<AbsoluteFilePath> filePaths)
+	internal static Dictionary<AbsoluteFilePath, string> HashFiles(IReadOnlyList<AbsoluteFilePath> filePaths) =>
+		HashFiles(filePaths, out _);
+
+	/// <summary>
+	/// Hashes every file in parallel. A file that can't be read is left out of the result and listed in
+	/// <paramref name="failures"/> as "path: message", sorted by path, so the caller can report it.
+	/// </summary>
+	internal static Dictionary<AbsoluteFilePath, string> HashFiles(IReadOnlyList<AbsoluteFilePath> filePaths, out IReadOnlyList<string> failures)
 	{
 		ConcurrentDictionary<AbsoluteFilePath, string> results = new();
+		ConcurrentBag<string> unreadable = [];
 
 		Parallel.ForEach(filePaths, filePath =>
 		{
@@ -28,6 +36,7 @@ internal static class ImageHasher
 			catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
 			{
 				// One unreadable, locked or dangling file must not abort hashing the rest.
+				unreadable.Add($"{filePath}: {ex.Message}");
 				lock (ConsoleLock)
 				{
 					Console.WriteLine($"  Warning: could not hash {filePath}: {ex.Message}");
@@ -44,6 +53,7 @@ internal static class ImageHasher
 			}
 		});
 
+		failures = [.. unreadable.Order(StringComparer.Ordinal)];
 		return new Dictionary<AbsoluteFilePath, string>(results);
 	}
 

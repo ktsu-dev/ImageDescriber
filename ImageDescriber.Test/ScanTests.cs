@@ -42,6 +42,10 @@ public class ScanTests
 	[DataRow("# sunset-beach", "sunset-beach.jpg")]
 	[DataRow("- sunset-beach", "sunset-beach.jpg")]
 	[DataRow("1. sunset-beach", "sunset-beach.jpg")]
+	[DataRow("Here is a suggested filename for this image.\nsunset-beach", "sunset-beach.jpg")]
+	[DataRow("Sure! Here's a filename.\n\n`sunset-beach`", "sunset-beach.jpg")]
+	[DataRow("Sure!\nsunset-beach", "sunset-beach.jpg")]
+	[DataRow("**Here you go!**\n\n```\nsunset-beach\n```", "sunset-beach.jpg")]
 	public void SanitizeFileNameSkipsALeadInAndStripsALabelOrMarkdownMarker(string raw, string expected)
 	{
 		FileName result = Scan.SanitizeFileName(raw, ".jpg".As<FileExtension>());
@@ -53,7 +57,22 @@ public class ScanTests
 	[DataRow("sunset-at-5:30pm", "sunset-at-5-30pm.jpg")]
 	[DataRow("Filename:", "Filename.jpg")]
 	[DataRow("**sunset-beach**", "sunset-beach.jpg")]
+	[DataRow("st.-louis-arch", "st.-louis-arch.jpg")]
+	[DataRow("A sunset over the beach.", "A sunset over the beach.jpg")]
+	[DataRow("A sunset over the beach.\nIt shows the sea at dusk.", "A sunset over the beach.jpg")]
+	[DataRow("sunset-beach.\nThis name describes the scene.", "sunset-beach.jpg")]
 	public void SanitizeFileNameKeepsANameThatOnlyLooksLikeALabelOrLeadIn(string raw, string expected)
+	{
+		FileName result = Scan.SanitizeFileName(raw, ".jpg".As<FileExtension>());
+
+		Assert.AreEqual(expected, result.WeakString);
+	}
+
+	[TestMethod]
+	[DataRow("photo-(1)", "photo-(1).jpg")]
+	[DataRow("(left)-and-(right)", "(left)-and-(right).jpg")]
+	[DataRow("[draft]-sunset", "[draft]-sunset.jpg")]
+	public void SanitizeFileNameKeepsBracketsThatDoNotEncloseTheWholeName(string raw, string expected)
 	{
 		FileName result = Scan.SanitizeFileName(raw, ".jpg".As<FileExtension>());
 
@@ -69,11 +88,45 @@ public class ScanTests
 	}
 
 	[TestMethod]
+	[DataRow("sunset-beach.tiff")]
+	[DataRow("sunset-beach.TIF")]
+	public void SanitizeFileNameStripsATiffExtensionThoughScansSkipTiff(string raw)
+	{
+		// TIFF moved out of the scannable extensions in #234, which left ".tiff" on the name and gave
+		// "sunset-beach.tiff.jpg"
+		FileName result = Scan.SanitizeFileName(raw, ".jpg".As<FileExtension>());
+
+		Assert.AreEqual("sunset-beach.jpg", result.WeakString);
+	}
+
+	[TestMethod]
 	public void SanitizeFileNameCollapsesMultipleHyphens()
 	{
 		FileName result = Scan.SanitizeFileName("a---b----c", ".jpg".As<FileExtension>());
 
 		Assert.AreEqual("a-b-c.jpg", result.WeakString);
+	}
+
+	[TestMethod]
+	[DataRow("Filename (no extension): sunset-beach", "sunset-beach.jpg")]
+	[DataRow("Filename (without extension): sunset-beach", "sunset-beach.jpg")]
+	[DataRow("Option 1: sunset-beach", "sunset-beach.jpg")]
+	[DataRow("**Option 2:** `sunset-beach`", "sunset-beach.jpg")]
+	public void SanitizeFileNameStripsALabelHoldingDigitsOrParentheses(string raw, string expected)
+	{
+		FileName result = Scan.SanitizeFileName(raw, ".jpg".As<FileExtension>());
+
+		Assert.AreEqual(expected, result.WeakString);
+	}
+
+	[TestMethod]
+	[DataRow("sunset-at-5:30pm-(day-2)", "sunset-at-5-30pm-(day-2).jpg")]
+	[DataRow("Option 1:", "Option 1.jpg")]
+	public void SanitizeFileNameKeepsANameThatOnlyLooksLikeALabelWithDigitsOrParentheses(string raw, string expected)
+	{
+		FileName result = Scan.SanitizeFileName(raw, ".jpg".As<FileExtension>());
+
+		Assert.AreEqual(expected, result.WeakString);
 	}
 
 	[TestMethod]
@@ -83,6 +136,16 @@ public class ScanTests
 	[DataRow("_sunset-beach.jpg_", ".jpg", "sunset-beach.jpg")]
 	[DataRow("\"**sunset-beach.jpg**\".", ".jpg", "sunset-beach.jpg")]
 	[DataRow("Suggested filename: **sunset-beach.png**", ".png", "sunset-beach.png")]
+	[DataRow("\u201Csunset-beach.jpg\u201D", ".jpg", "sunset-beach.jpg")]
+	[DataRow("\u201Csunset-beach\u201D", ".jpg", "sunset-beach.jpg")]
+	[DataRow("\u2018sunset-beach\u2019", ".jpg", "sunset-beach.jpg")]
+	[DataRow("\u00ABsunset-beach.jpg\u00BB", ".jpg", "sunset-beach.jpg")]
+	[DataRow("(sunset-beach.jpg)", ".jpg", "sunset-beach.jpg")]
+	[DataRow("[sunset-beach]", ".jpg", "sunset-beach.jpg")]
+	[DataRow("sunset-beach.jpg,", ".jpg", "sunset-beach.jpg")]
+	[DataRow("sunset-beach;", ".jpg", "sunset-beach.jpg")]
+	[DataRow("\u300Csunset-beach\u300D", ".jpg", "sunset-beach.jpg")]
+	[DataRow("\u201C(sunset-beach.jpg)\u201D.", ".jpg", "sunset-beach.jpg")]
 	public void SanitizeFileNameStripsAnExtensionWrappedInFormattingOrPunctuation(string raw, string extension, string expected)
 	{
 		// The extension used to be checked before the wrapping was removed, so "sunset-beach.jpg**"
@@ -486,6 +549,113 @@ public class ScanTests
 	}
 
 	[TestMethod]
+	public void HashFilesReportsFilesThatCannotBeRead()
+	{
+		string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+		Directory.CreateDirectory(tempDir);
+
+		try
+		{
+			AbsoluteFilePath real = Path.Combine(tempDir, "real.jpg").As<AbsoluteFilePath>();
+			AbsoluteFilePath missing = Path.Combine(tempDir, "broken.jpg").As<AbsoluteFilePath>();
+			File.WriteAllBytes(real.WeakString, [0xFF, 0xD8]);
+
+			_ = ImageHasher.HashFiles([real, missing], out IReadOnlyList<string> failures);
+
+			Assert.HasCount(1, failures);
+			Assert.StartsWith($"{missing}: ", failures[0]);
+		}
+		finally
+		{
+			Directory.Delete(tempDir, true);
+		}
+	}
+
+	[TestMethod]
+	public void ScanFailsAndNamesAnImageThatCannotBeHashed()
+	{
+		string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+		Directory.CreateDirectory(tempDir);
+		string unreadable = Path.Combine(tempDir, "locked.jpg");
+		FileStream? exclusive = null;
+		try
+		{
+			// Windows refuses to open a file another handle holds with FileShare.None. Elsewhere that
+			// doesn't stop a read, so use a dangling link, which is listed but can't be opened.
+			if (OperatingSystem.IsWindows())
+			{
+				exclusive = new FileStream(unreadable, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None);
+			}
+			else
+			{
+				File.CreateSymbolicLink(unreadable, Path.Combine(tempDir, "gone.jpg"));
+			}
+
+			(bool failed, string text) = RunScanWithKnownImage(tempDir);
+
+			Assert.IsTrue(failed, text);
+			Assert.Contains("Failed to hash 1 image(s):", text);
+			Assert.Contains($"  {unreadable}: ", text);
+			Assert.Contains("Scan complete.", text);
+		}
+		finally
+		{
+			exclusive?.Dispose();
+			Directory.Delete(tempDir, true);
+		}
+	}
+
+	[TestMethod]
+	public void ScanSucceedsWhenEveryImageHashes()
+	{
+		string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+		Directory.CreateDirectory(tempDir);
+		try
+		{
+			(bool failed, string text) = RunScanWithKnownImage(tempDir);
+
+			Assert.IsFalse(failed, text);
+			Assert.DoesNotContain("Failed to", text);
+		}
+		finally
+		{
+			Directory.Delete(tempDir, true);
+		}
+	}
+
+	/// <summary>
+	/// Runs Scan over <paramref name="tempDir"/> after adding known.jpg, which the store already
+	/// describes at that path, so the run neither calls the model for it nor saves the real app data.
+	/// </summary>
+	private static (bool Failed, string Output) RunScanWithKnownImage(string tempDir)
+	{
+		AbsoluteFilePath known = Path.Combine(tempDir, "known.jpg").As<AbsoluteFilePath>();
+		File.WriteAllBytes(known.WeakString, [0xFF, 0xD8]);
+		string hash = ImageHasher.ComputeHash(known);
+
+		PersistentState originalSettings = Program.Settings;
+		TextWriter originalOut = Console.Out;
+		using HttpListener listener = StartFakeOllama(out string endpoint);
+		using StringWriter output = new();
+		try
+		{
+			Program.Settings = new PersistentState();
+			Program.Settings.Descriptions[hash] = new ImageDescription { Hash = hash, KnownPaths = [known], Description = "known" };
+			Console.SetOut(output);
+
+			Scan scan = new() { PathString = tempDir, EndpointString = endpoint, ModelString = "test-model" };
+			scan.Run(scan);
+			return (scan.Failed, output.ToString());
+		}
+		finally
+		{
+			Console.SetOut(originalOut);
+			Program.Settings = originalSettings;
+			listener.Stop();
+		}
+	}
+
+	[TestMethod]
 	public void DescribeImagesContinuesPastPerImageFailures()
 	{
 		string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
@@ -523,6 +693,54 @@ public class ScanTests
 			Assert.HasCount(2, failures);
 			Assert.Contains(f => f.Contains("bad.jpg", StringComparison.Ordinal) && f.Contains(nameof(JsonException), StringComparison.Ordinal), failures);
 			Assert.Contains(f => f.Contains("gone.jpg", StringComparison.Ordinal), failures);
+		}
+		finally
+		{
+			listener.Stop();
+			Directory.Delete(tempDir, true);
+		}
+	}
+
+	[TestMethod]
+	public void DescribeImagesReportsAnEmptyOrTruncatedAnswerAndStoresNothingForIt()
+	{
+		string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+		Directory.CreateDirectory(tempDir);
+
+		using HttpListener listener = StartFakeOllama(out string endpoint);
+		try
+		{
+			AbsoluteFilePath good = Path.Combine(tempDir, "good.jpg").As<AbsoluteFilePath>();
+			AbsoluteFilePath empty = Path.Combine(tempDir, "empty.jpg").As<AbsoluteFilePath>();
+			AbsoluteFilePath cut = Path.Combine(tempDir, "cut.jpg").As<AbsoluteFilePath>();
+			foreach (AbsoluteFilePath image in new[] { good, empty, cut })
+			{
+				File.WriteAllBytes(image.WeakString, [0xFF, 0xD8]);
+			}
+
+			Dictionary<string, List<AbsoluteFilePath>> newHashPaths = new()
+			{
+				["good"] = [good],
+				["empty"] = [empty],
+				["cut"] = [cut],
+			};
+			ConcurrentBag<ImageDescription> stored = [];
+
+			IReadOnlyList<string> failures = Scan.DescribeImages(
+				newHashPaths,
+				endpoint.As<OllamaEndpoint>(),
+				"test-model".As<OllamaModelName>(),
+				"Describe.",
+				"Name it.",
+				maxConcurrency: 1,
+				stored.Add);
+
+			// Nothing is stored for the empty or cut-off answer, so the next scan describes those images again
+			Assert.HasCount(1, stored);
+			Assert.AreEqual("good", stored.Single().Hash);
+			Assert.HasCount(2, failures);
+			Assert.Contains(f => f.Contains("empty.jpg", StringComparison.Ordinal) && f.Contains("empty response", StringComparison.Ordinal), failures);
+			Assert.Contains(f => f.Contains("cut.jpg", StringComparison.Ordinal) && f.Contains("done_reason: length", StringComparison.Ordinal), failures);
 		}
 		finally
 		{
@@ -638,7 +856,9 @@ public class ScanTests
 
 	/// <summary>
 	/// Serves /api/generate like Ollama, except that a request mentioning bad.jpg gets an HTML
-	/// page, as a proxy or the wrong service on the endpoint would return.
+	/// page, as a proxy or the wrong service on the endpoint would return, one mentioning
+	/// empty.jpg gets a blank answer, and one mentioning cut.jpg gets an answer the token limit
+	/// cut off.
 	/// </summary>
 	private static HttpListener StartFakeOllama(out string endpoint)
 	{
@@ -674,7 +894,11 @@ public class ScanTests
 				string body = await reader.ReadToEndAsync().ConfigureAwait(false);
 				bool isBad = body.Contains("bad.jpg", StringComparison.Ordinal);
 				context.Response.ContentType = isBad ? "text/html" : "application/json";
-				byte[] response = Encoding.UTF8.GetBytes(isBad ? "<html>Not Ollama</html>" : "{\"response\":\"a dog on a beach\"}");
+				string answer = isBad ? "<html>Not Ollama</html>"
+					: body.Contains("empty.jpg", StringComparison.Ordinal) ? "{\"response\":\" \\n\",\"done\":true,\"done_reason\":\"stop\"}"
+					: body.Contains("cut.jpg", StringComparison.Ordinal) ? "{\"response\":\"A dog on a\",\"done\":true,\"done_reason\":\"length\"}"
+					: "{\"response\":\"a dog on a beach\",\"done\":true,\"done_reason\":\"stop\"}";
+				byte[] response = Encoding.UTF8.GetBytes(answer);
 				await context.Response.OutputStream.WriteAsync(response).ConfigureAwait(false);
 				context.Response.Close();
 			}

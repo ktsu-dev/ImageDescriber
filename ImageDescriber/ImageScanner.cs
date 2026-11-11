@@ -98,4 +98,10 @@ internal static class ImageScanner
 	internal static bool IsUnsupportedImageExtension(string extension) =>
 		!string.IsNullOrEmpty(extension)
 		&& UnsupportedImageExtensions.Contains(extension.ToLowerInvariant().As<FileExtension>());
+
+	/// <summary>
+	/// Whether an extension names an image format, whether or not a scan can describe it.
+	/// </summary>
+	internal static bool IsKnownImageExtension(string extension) =>
+		IsImageExtension(extension) || IsUnsupportedImageExtension(extension);
 }

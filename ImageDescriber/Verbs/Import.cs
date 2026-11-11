@@ -33,7 +33,7 @@ internal sealed class Import : BaseVerb<Import>
 		if (string.IsNullOrWhiteSpace(InputPath))
 		{
 			Console.Write("Enter the file path to import: ");
-			string? input = Console.ReadLine()?.Trim();
+			string? input = ReadPromptPath();
 			if (string.IsNullOrEmpty(input))
 			{
 				Console.WriteLine("No path provided. Aborting.");
@@ -180,8 +180,13 @@ internal sealed class Import : BaseVerb<Import>
 	internal static bool MergeKnownPaths(ImageDescription source, ImageDescription target)
 	{
 		bool pathsAdded = false;
-		foreach (AbsoluteFilePath path in source.KnownPaths.Where(p => !target.KnownPaths.Contains(p)))
+		foreach (AbsoluteFilePath path in source.KnownPaths)
 		{
+			if (KnownPathComparison.ContainsSame(target.KnownPaths, path))
+			{
+				continue;
+			}
+
 			target.KnownPaths.Add(path);
 			pathsAdded = true;
 		}
@@ -191,7 +196,11 @@ internal sealed class Import : BaseVerb<Import>
 
 	internal static List<ImageDescription>? ImportJson(AbsoluteFilePath inputPath)
 	{
-		string json = File.ReadAllText(inputPath.WeakString);
+		string? json = ReadInput(inputPath);
+		if (json is null)
+		{
+			return null;
+		}
 
 		// A truncated or hand-edited file, or one that isn't an export at all, has to end the
 		// import before anything is merged or saved, not end the process with a stack trace.
@@ -211,8 +220,46 @@ internal sealed class Import : BaseVerb<Import>
 		}
 	}
 
-	private static List<ImageDescription> ImportCsv(AbsoluteFilePath inputPath, out int unreadableCount) =>
-		ParseCsv(File.ReadAllText(inputPath.WeakString), out unreadableCount);
+	internal static List<ImageDescription>? ImportCsv(AbsoluteFilePath inputPath) => ImportCsv(inputPath, out _);
+
+	private static List<ImageDescription>? ImportCsv(AbsoluteFilePath inputPath, out int unreadableCount)
+	{
+		string? text = ReadInput(inputPath);
+		if (text is null)
+		{
+			unreadableCount = 0;
+			return null;
+		}
+
+		return ParseCsv(text, out unreadableCount);
+	}
+
+	/// <summary>
+	/// Reads the whole input file, or reports why it can't be read and returns <see langword="null"/>.
+	/// </summary>
+	/// <remarks>
+	/// File.Exists says nothing about whether the file can be opened. An export still open in Excel
+	/// is locked, and a file the user has no read permission on is refused, and either has to end
+	/// the import before anything is merged or saved rather than end the process (or the menu
+	/// session) with a stack trace.
+	/// </remarks>
+	private static string? ReadInput(AbsoluteFilePath inputPath)
+	{
+		try
+		{
+			return File.ReadAllText(inputPath.WeakString);
+		}
+		catch (IOException ex)
+		{
+			Console.WriteLine($"Error: cannot read {inputPath}: {ex.Message}");
+			return null;
+		}
+		catch (UnauthorizedAccessException ex)
+		{
+			Console.WriteLine($"Error: cannot read {inputPath}: {ex.Message}");
+			return null;
+		}
+	}
 
 	internal static List<ImageDescription> ParseCsv(string text) => ParseCsv(text, out _);
 

@@ -245,6 +245,39 @@ public class ImportTests
 	}
 
 	[TestMethod]
+	public void JsonExportHasNoByteOrderMarkAndImportsBack()
+	{
+		ImageDescription original = new()
+		{
+			Hash = new string('a', 64),
+			SuggestedFileName = "dog-on-beach.jpg".As<FileName>(),
+			KnownPaths = [Path.Combine(Path.GetTempPath(), "a.jpg").As<AbsoluteFilePath>()],
+			Model = "llava".As<OllamaModelName>(),
+			DescribedAt = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc),
+			FileSizeBytes = 1,
+			Description = "A dog on a beach.",
+		};
+		string file = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".json");
+		try
+		{
+			Export.ExportJson(file.As<AbsoluteFilePath>(), new() { [original.Hash] = original });
+
+			// A byte order mark makes Python's json.load and Node's JSON.parse reject the file
+			byte[] bytes = File.ReadAllBytes(file);
+			Assert.AreEqual((byte)'[', bytes[0]);
+
+			List<ImageDescription>? entries = Import.ImportJson(file.As<AbsoluteFilePath>());
+			Assert.IsNotNull(entries);
+			Assert.HasCount(1, entries);
+			Assert.AreEqual(original.Hash, entries[0].Hash);
+		}
+		finally
+		{
+			File.Delete(file);
+		}
+	}
+
+	[TestMethod]
 	public void CsvExportThenImportKeepsPathsThatContainTheOldSeparator()
 	{
 		string folder = Path.Combine(Path.GetTempPath(), "Photos", "Smith; Jones wedding");
@@ -320,6 +353,92 @@ public class ImportTests
 			File.Delete(file);
 		}
 	}
+	[TestMethod]
+	[DataRow(".json", "[]")]
+	[DataRow(".csv", "Hash\n")]
+	public void RunReportsALockedInputFileWithoutThrowingOrChangingTheStore(string extension, string content)
+	{
+		PersistentState originalSettings = Program.Settings;
+		TextWriter originalOut = Console.Out;
+		string file = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + extension);
+		File.WriteAllText(file, content);
+		try
+		{
+			Program.Settings = new PersistentState();
+			using StringWriter output = new();
+			Console.SetOut(output);
+
+			Import import = new();
+			using (new FileStream(file, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+			{
+				import.Run(new Import { InputPath = file });
+			}
+
+			Assert.IsTrue(import.Failed);
+			Assert.IsEmpty(Program.Settings.Descriptions);
+			Assert.Contains($"Error: cannot read {file}: ", output.ToString());
+			Assert.DoesNotContain("Import complete.", output.ToString());
+		}
+		finally
+		{
+			Console.SetOut(originalOut);
+			Program.Settings = originalSettings;
+			File.Delete(file);
+		}
+	}
+
+	[TestMethod]
+	public void ImportJsonAndImportCsvReturnNullForALockedFile()
+	{
+		TextWriter originalOut = Console.Out;
+		string file = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".json");
+		File.WriteAllText(file, "[]");
+		try
+		{
+			using StringWriter output = new();
+			Console.SetOut(output);
+
+			using (new FileStream(file, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+			{
+				Assert.IsNull(Import.ImportJson(file.As<AbsoluteFilePath>()));
+				Assert.IsNull(Import.ImportCsv(file.As<AbsoluteFilePath>()));
+			}
+		}
+		finally
+		{
+			Console.SetOut(originalOut);
+			File.Delete(file);
+		}
+	}
+
+	[TestMethod]
+	[DataRow(".json")]
+	[DataRow(".csv")]
+	public void ImportJsonAndImportCsvReturnNullForAPathTheyAreDeniedAccessTo(string extension)
+	{
+		// Opening a directory as a file raises UnauthorizedAccessException on every platform,
+		// whoever runs the test, which a file mode cannot promise under root.
+		TextWriter originalOut = Console.Out;
+		string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + extension);
+		Directory.CreateDirectory(directory);
+		try
+		{
+			using StringWriter output = new();
+			Console.SetOut(output);
+
+			AbsoluteFilePath path = directory.As<AbsoluteFilePath>();
+			List<ImageDescription>? entries = extension == ".json" ? Import.ImportJson(path) : Import.ImportCsv(path);
+
+			Assert.IsNull(entries);
+			Assert.Contains($"Error: cannot read {directory}: ", output.ToString());
+		}
+		finally
+		{
+			Console.SetOut(originalOut);
+			Directory.Delete(directory);
+		}
+	}
+
 	[TestMethod]
 	public void MergeEntriesStoresZeroForANegativeFileSizeFromCsv()
 	{
