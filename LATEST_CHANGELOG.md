@@ -1,6 +1,6 @@
-## v1.2.17 (patch)
+## v1.2.18-pre.1 (prerelease)
 
-Changes since v1.2.16:
+Changes since v1.2.17:
 
-- Count unreadable CSV rows as skipped, and fail an import that reads none [patch] (#254) (matt-edmondson)
+- Bump TestableIO.System.IO.Abstractions.TestingHelpers from 22.3.0 to 23.0.0 (dependabot[bot])
 
