@@ -354,6 +354,92 @@ public class ImportTests
 		}
 	}
 	[TestMethod]
+	[DataRow(".json", "[]")]
+	[DataRow(".csv", "Hash\n")]
+	public void RunReportsALockedInputFileWithoutThrowingOrChangingTheStore(string extension, string content)
+	{
+		PersistentState originalSettings = Program.Settings;
+		TextWriter originalOut = Console.Out;
+		string file = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + extension);
+		File.WriteAllText(file, content);
+		try
+		{
+			Program.Settings = new PersistentState();
+			using StringWriter output = new();
+			Console.SetOut(output);
+
+			Import import = new();
+			using (new FileStream(file, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+			{
+				import.Run(new Import { InputPath = file });
+			}
+
+			Assert.IsTrue(import.Failed);
+			Assert.IsEmpty(Program.Settings.Descriptions);
+			Assert.Contains($"Error: cannot read {file}: ", output.ToString());
+			Assert.DoesNotContain("Import complete.", output.ToString());
+		}
+		finally
+		{
+			Console.SetOut(originalOut);
+			Program.Settings = originalSettings;
+			File.Delete(file);
+		}
+	}
+
+	[TestMethod]
+	public void ImportJsonAndImportCsvReturnNullForALockedFile()
+	{
+		TextWriter originalOut = Console.Out;
+		string file = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".json");
+		File.WriteAllText(file, "[]");
+		try
+		{
+			using StringWriter output = new();
+			Console.SetOut(output);
+
+			using (new FileStream(file, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+			{
+				Assert.IsNull(Import.ImportJson(file.As<AbsoluteFilePath>()));
+				Assert.IsNull(Import.ImportCsv(file.As<AbsoluteFilePath>()));
+			}
+		}
+		finally
+		{
+			Console.SetOut(originalOut);
+			File.Delete(file);
+		}
+	}
+
+	[TestMethod]
+	[DataRow(".json")]
+	[DataRow(".csv")]
+	public void ImportJsonAndImportCsvReturnNullForAPathTheyAreDeniedAccessTo(string extension)
+	{
+		// Opening a directory as a file raises UnauthorizedAccessException on every platform,
+		// whoever runs the test, which a file mode cannot promise under root.
+		TextWriter originalOut = Console.Out;
+		string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + extension);
+		Directory.CreateDirectory(directory);
+		try
+		{
+			using StringWriter output = new();
+			Console.SetOut(output);
+
+			AbsoluteFilePath path = directory.As<AbsoluteFilePath>();
+			List<ImageDescription>? entries = extension == ".json" ? Import.ImportJson(path) : Import.ImportCsv(path);
+
+			Assert.IsNull(entries);
+			Assert.Contains($"Error: cannot read {directory}: ", output.ToString());
+		}
+		finally
+		{
+			Console.SetOut(originalOut);
+			Directory.Delete(directory);
+		}
+	}
+
+	[TestMethod]
 	public void MergeEntriesStoresZeroForANegativeFileSizeFromCsv()
 	{
 		ImageDescription original = new()
