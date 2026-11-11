@@ -29,7 +29,7 @@ internal sealed class Scan : BaseVerb<Scan>
 		if (string.IsNullOrWhiteSpace(PathString))
 		{
 			Console.Write("Enter the path to scan: ");
-			string? input = Console.ReadLine()?.Trim();
+			string? input = ReadPromptPath();
 			if (string.IsNullOrEmpty(input))
 			{
 				Console.WriteLine("No path provided. Aborting.");
@@ -113,9 +113,8 @@ internal sealed class Scan : BaseVerb<Scan>
 			if (descriptions.TryGetValue(kvp.Value, out ImageDescription? existing))
 			{
 				skippedCount++;
-				if (!existing.KnownPaths.Contains(kvp.Key))
+				if (RecordKnownPath(existing, kvp.Key))
 				{
-					existing.KnownPaths.Add(kvp.Key);
 					newPathCount++;
 				}
 			}
@@ -183,6 +182,24 @@ internal sealed class Scan : BaseVerb<Scan>
 		Console.WriteLine($"Total descriptions in database: {Program.Settings.Descriptions.Count}");
 
 		PathString = string.Empty;
+	}
+
+	/// <summary>
+	/// Records a path an already-described image was found at, unless it already has a path naming
+	/// the same file.
+	/// </summary>
+	/// <param name="existing">The stored description of the image.</param>
+	/// <param name="path">Where this scan found it.</param>
+	/// <returns>True when the path was new and has been added.</returns>
+	internal static bool RecordKnownPath(ImageDescription existing, AbsoluteFilePath path)
+	{
+		if (KnownPathComparison.ContainsSame(existing.KnownPaths, path))
+		{
+			return false;
+		}
+
+		existing.KnownPaths.Add(path);
+		return true;
 	}
 
 	private static void PrintFailureSummary(string stage, IReadOnlyList<string> failures)
@@ -296,9 +313,10 @@ internal sealed class Scan : BaseVerb<Scan>
 		// Strip an image extension the model may have included. A suggestion normally has no
 		// extension, so any other dot is part of the name ("st.-louis-arch", "sunset-at-5.30pm").
 		// Sliced off by hand rather than with Path.GetFileNameWithoutExtension, which would also drop
-		// anything before a "\" on Windows
+		// anything before a "\" on Windows. TIFF counts too: the scan skips it, but a model that says
+		// ".tiff" still means it as the extension, not as part of the name
 		int extensionStart = name.LastIndexOf('.');
-		if (extensionStart >= 0 && ImageScanner.IsImageExtension(name[extensionStart..]))
+		if (extensionStart >= 0 && ImageScanner.IsKnownImageExtension(name[extensionStart..]))
 		{
 			name = name[..extensionStart];
 		}
