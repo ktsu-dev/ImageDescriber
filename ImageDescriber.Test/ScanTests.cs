@@ -61,6 +61,17 @@ public class ScanTests
 	}
 
 	[TestMethod]
+	[DataRow("photo-(1)", "photo-(1).jpg")]
+	[DataRow("(left)-and-(right)", "(left)-and-(right).jpg")]
+	[DataRow("[draft]-sunset", "[draft]-sunset.jpg")]
+	public void SanitizeFileNameKeepsBracketsThatDoNotEncloseTheWholeName(string raw, string expected)
+	{
+		FileName result = Scan.SanitizeFileName(raw, ".jpg".As<FileExtension>());
+
+		Assert.AreEqual(expected, result.WeakString);
+	}
+
+	[TestMethod]
 	public void SanitizeFileNameStripsExistingExtension()
 	{
 		FileName result = Scan.SanitizeFileName("photo.png", ".jpg".As<FileExtension>());
@@ -117,6 +128,16 @@ public class ScanTests
 	[DataRow("_sunset-beach.jpg_", ".jpg", "sunset-beach.jpg")]
 	[DataRow("\"**sunset-beach.jpg**\".", ".jpg", "sunset-beach.jpg")]
 	[DataRow("Suggested filename: **sunset-beach.png**", ".png", "sunset-beach.png")]
+	[DataRow("\u201Csunset-beach.jpg\u201D", ".jpg", "sunset-beach.jpg")]
+	[DataRow("\u201Csunset-beach\u201D", ".jpg", "sunset-beach.jpg")]
+	[DataRow("\u2018sunset-beach\u2019", ".jpg", "sunset-beach.jpg")]
+	[DataRow("\u00ABsunset-beach.jpg\u00BB", ".jpg", "sunset-beach.jpg")]
+	[DataRow("(sunset-beach.jpg)", ".jpg", "sunset-beach.jpg")]
+	[DataRow("[sunset-beach]", ".jpg", "sunset-beach.jpg")]
+	[DataRow("sunset-beach.jpg,", ".jpg", "sunset-beach.jpg")]
+	[DataRow("sunset-beach;", ".jpg", "sunset-beach.jpg")]
+	[DataRow("\u300Csunset-beach\u300D", ".jpg", "sunset-beach.jpg")]
+	[DataRow("\u201C(sunset-beach.jpg)\u201D.", ".jpg", "sunset-beach.jpg")]
 	public void SanitizeFileNameStripsAnExtensionWrappedInFormattingOrPunctuation(string raw, string extension, string expected)
 	{
 		// The extension used to be checked before the wrapping was removed, so "sunset-beach.jpg**"
