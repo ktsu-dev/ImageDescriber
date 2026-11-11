@@ -33,7 +33,7 @@ internal sealed class Import : BaseVerb<Import>
 		if (string.IsNullOrWhiteSpace(InputPath))
 		{
 			Console.Write("Enter the file path to import: ");
-			string? input = Console.ReadLine()?.Trim();
+			string? input = ReadPromptPath();
 			if (string.IsNullOrEmpty(input))
 			{
 				Console.WriteLine("No path provided. Aborting.");

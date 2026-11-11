@@ -29,7 +29,7 @@ internal sealed class Scan : BaseVerb<Scan>
 		if (string.IsNullOrWhiteSpace(PathString))
 		{
 			Console.Write("Enter the path to scan: ");
-			string? input = Console.ReadLine()?.Trim();
+			string? input = ReadPromptPath();
 			if (string.IsNullOrEmpty(input))
 			{
 				Console.WriteLine("No path provided. Aborting.");
