@@ -118,6 +118,10 @@ internal static class OllamaClient
 		return await SendRequestAsync(endpoint, request).ConfigureAwait(false);
 	}
 
+	/// <exception cref="InvalidDataException">
+	/// Ollama answered with no text, or stopped because it reached its token limit
+	/// (<c>done_reason</c> <c>length</c>), so the answer is missing or cut off.
+	/// </exception>
 	private static async Task<string> SendRequestAsync(OllamaEndpoint endpoint, OllamaRequest request)
 	{
 		string jsonContent = JsonSerializer.Serialize(request, OllamaJsonContext.Default.OllamaRequest);
@@ -129,7 +133,28 @@ internal static class OllamaClient
 		string responseBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 		OllamaResponse? ollamaResponse = JsonSerializer.Deserialize(responseBody, OllamaJsonContext.Default.OllamaResponse);
 
-		return ollamaResponse?.Response ?? string.Empty;
+		return ReadAnswer(ollamaResponse);
+	}
+
+	/// <summary>
+	/// Returns the model's answer, or throws when it is empty or truncated. Either would otherwise be
+	/// stored as a finished description, and a stored image is never described again.
+	/// </summary>
+	/// <exception cref="InvalidDataException">The answer is empty, or <c>done_reason</c> is <c>length</c>.</exception>
+	internal static string ReadAnswer(OllamaResponse? response)
+	{
+		string answer = response?.Response ?? string.Empty;
+		if (string.IsNullOrWhiteSpace(answer))
+		{
+			throw new InvalidDataException("Ollama returned an empty response.");
+		}
+
+		if (string.Equals(response?.DoneReason, "length", StringComparison.Ordinal))
+		{
+			throw new InvalidDataException("Ollama's response was cut off at the model's token limit (done_reason: length).");
+		}
+
+		return answer;
 	}
 }
 
@@ -158,4 +183,11 @@ internal sealed class OllamaResponse
 {
 	[JsonPropertyName("response")]
 	public string Response { get; set; } = string.Empty;
+
+	/// <summary>
+	/// Why generation stopped: <c>stop</c> for a finished answer, <c>length</c> when the token
+	/// limit cut it off, <c>load</c> when only the model was loaded.
+	/// </summary>
+	[JsonPropertyName("done_reason")]
+	public string? DoneReason { get; set; }
 }

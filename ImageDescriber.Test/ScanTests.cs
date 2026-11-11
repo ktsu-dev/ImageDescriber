@@ -69,6 +69,18 @@ public class ScanTests
 	}
 
 	[TestMethod]
+	[DataRow("sunset-beach.tiff")]
+	[DataRow("sunset-beach.TIF")]
+	public void SanitizeFileNameStripsATiffExtensionThoughScansSkipTiff(string raw)
+	{
+		// TIFF moved out of the scannable extensions in #234, which left ".tiff" on the name and gave
+		// "sunset-beach.tiff.jpg"
+		FileName result = Scan.SanitizeFileName(raw, ".jpg".As<FileExtension>());
+
+		Assert.AreEqual("sunset-beach.jpg", result.WeakString);
+	}
+
+	[TestMethod]
 	public void SanitizeFileNameCollapsesMultipleHyphens()
 	{
 		FileName result = Scan.SanitizeFileName("a---b----c", ".jpg".As<FileExtension>());
@@ -532,6 +544,54 @@ public class ScanTests
 	}
 
 	[TestMethod]
+	public void DescribeImagesReportsAnEmptyOrTruncatedAnswerAndStoresNothingForIt()
+	{
+		string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+		Directory.CreateDirectory(tempDir);
+
+		using HttpListener listener = StartFakeOllama(out string endpoint);
+		try
+		{
+			AbsoluteFilePath good = Path.Combine(tempDir, "good.jpg").As<AbsoluteFilePath>();
+			AbsoluteFilePath empty = Path.Combine(tempDir, "empty.jpg").As<AbsoluteFilePath>();
+			AbsoluteFilePath cut = Path.Combine(tempDir, "cut.jpg").As<AbsoluteFilePath>();
+			foreach (AbsoluteFilePath image in new[] { good, empty, cut })
+			{
+				File.WriteAllBytes(image.WeakString, [0xFF, 0xD8]);
+			}
+
+			Dictionary<string, List<AbsoluteFilePath>> newHashPaths = new()
+			{
+				["good"] = [good],
+				["empty"] = [empty],
+				["cut"] = [cut],
+			};
+			ConcurrentBag<ImageDescription> stored = [];
+
+			IReadOnlyList<string> failures = Scan.DescribeImages(
+				newHashPaths,
+				endpoint.As<OllamaEndpoint>(),
+				"test-model".As<OllamaModelName>(),
+				"Describe.",
+				"Name it.",
+				maxConcurrency: 1,
+				stored.Add);
+
+			// Nothing is stored for the empty or cut-off answer, so the next scan describes those images again
+			Assert.HasCount(1, stored);
+			Assert.AreEqual("good", stored.Single().Hash);
+			Assert.HasCount(2, failures);
+			Assert.Contains(f => f.Contains("empty.jpg", StringComparison.Ordinal) && f.Contains("empty response", StringComparison.Ordinal), failures);
+			Assert.Contains(f => f.Contains("cut.jpg", StringComparison.Ordinal) && f.Contains("done_reason: length", StringComparison.Ordinal), failures);
+		}
+		finally
+		{
+			listener.Stop();
+			Directory.Delete(tempDir, true);
+		}
+	}
+
+	[TestMethod]
 	public void DescribeImagesReportsAnOversizedImageAndContinues()
 	{
 		string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
@@ -638,7 +698,9 @@ public class ScanTests
 
 	/// <summary>
 	/// Serves /api/generate like Ollama, except that a request mentioning bad.jpg gets an HTML
-	/// page, as a proxy or the wrong service on the endpoint would return.
+	/// page, as a proxy or the wrong service on the endpoint would return, one mentioning
+	/// empty.jpg gets a blank answer, and one mentioning cut.jpg gets an answer the token limit
+	/// cut off.
 	/// </summary>
 	private static HttpListener StartFakeOllama(out string endpoint)
 	{
@@ -674,7 +736,11 @@ public class ScanTests
 				string body = await reader.ReadToEndAsync().ConfigureAwait(false);
 				bool isBad = body.Contains("bad.jpg", StringComparison.Ordinal);
 				context.Response.ContentType = isBad ? "text/html" : "application/json";
-				byte[] response = Encoding.UTF8.GetBytes(isBad ? "<html>Not Ollama</html>" : "{\"response\":\"a dog on a beach\"}");
+				string answer = isBad ? "<html>Not Ollama</html>"
+					: body.Contains("empty.jpg", StringComparison.Ordinal) ? "{\"response\":\" \\n\",\"done\":true,\"done_reason\":\"stop\"}"
+					: body.Contains("cut.jpg", StringComparison.Ordinal) ? "{\"response\":\"A dog on a\",\"done\":true,\"done_reason\":\"length\"}"
+					: "{\"response\":\"a dog on a beach\",\"done\":true,\"done_reason\":\"stop\"}";
+				byte[] response = Encoding.UTF8.GetBytes(answer);
 				await context.Response.OutputStream.WriteAsync(response).ConfigureAwait(false);
 				context.Response.Close();
 			}
