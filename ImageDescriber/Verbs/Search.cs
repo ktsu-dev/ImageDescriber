@@ -78,14 +78,16 @@ internal sealed class Search : BaseVerb<Search>
 		query.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
 
 	/// <summary>
-	/// An entry matches when every keyword starts a word, case-insensitively, in its description or in one of
-	/// its known file names. The keywords may appear in any order and need not be adjacent. A keyword may be
-	/// the start of a longer word ("sun" finds "sunset"), but not a part inside one ("cat" doesn't find "located").
+	/// An entry matches when every keyword starts a word, case-insensitively, in its description, its suggested
+	/// file name, or one of its known paths, folder names included. The keywords may appear in any order, need
+	/// not be adjacent, and may each be found in a different one of those. A keyword may be the start of a
+	/// longer word ("sun" finds "sunset"), but not a part inside one ("cat" doesn't find "located").
 	/// </summary>
 	internal static bool MatchesAllTerms(ImageDescription description, IReadOnlyCollection<string> terms) =>
 		terms.Count > 0 && terms.All(term =>
 			StartsAWord(description.Description, term)
-			|| description.KnownPaths.Any(p => StartsAWord(p.FileName, term)));
+			|| StartsAWord(description.SuggestedFileName.ToString(), term)
+			|| description.KnownPaths.Any(p => StartsAWord(p.ToString(), term)));
 
 	/// <summary>
 	/// Whether <paramref name="term"/> occurs in <paramref name="text"/>, case-insensitively, where a word
