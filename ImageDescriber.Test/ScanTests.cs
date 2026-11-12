@@ -120,6 +120,28 @@ public class ScanTests
 	}
 
 	[TestMethod]
+	[DataRow("Sure! Here's a suggested filename: sunset-beach")]
+	[DataRow("Here is a suggested filename for this image: sunset-beach")]
+	[DataRow("Based on the description, a suitable filename would be: sunset-beach")]
+	[DataRow("Sure. Filename: sunset-beach")]
+	[DataRow("**Sure! Here's a suggested filename:** `sunset-beach`")]
+	public void SanitizeFileNameStripsAProseLeadInOnTheNameLine(string raw)
+	{
+		FileName result = Scan.SanitizeFileName(raw, ".jpg".As<FileExtension>());
+
+		Assert.AreEqual("sunset-beach.jpg", result.WeakString);
+	}
+
+	[TestMethod]
+	[DataRow("st.-louis-arch: day 2", "st.-louis-arch- day 2.jpg")]
+	public void SanitizeFileNameKeepsANameWhoseDotIsNotASentenceEnd(string raw, string expected)
+	{
+		FileName result = Scan.SanitizeFileName(raw, ".jpg".As<FileExtension>());
+
+		Assert.AreEqual(expected, result.WeakString);
+	}
+
+	[TestMethod]
 	[DataRow("sunset-at-5:30pm-(day-2)", "sunset-at-5-30pm-(day-2).jpg")]
 	[DataRow("Option 1:", "Option 1.jpg")]
 	public void SanitizeFileNameKeepsANameThatOnlyLooksLikeALabelWithDigitsOrParentheses(string raw, string expected)

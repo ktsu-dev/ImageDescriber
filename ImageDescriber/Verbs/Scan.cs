@@ -501,10 +501,13 @@ internal sealed class Scan : BaseVerb<Scan>
 	private static readonly Regex MarkdownLineMarker = new(@"^(?:#{1,6}|[-*+]|\d+[.)])\s+", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
 
 	// A label in front of the name on the same line: "Filename: ", "**Suggested filename:** ",
-	// "Filename (no extension): ", "Option 1: ". Starts with a letter, holds only words, digits,
-	// spaces and simple punctuation, and must be followed by a space, so a time such as
-	// "sunset-at-5:30pm" is not a label
-	private static readonly Regex NameLabel = new(@"^[*_]*\p{L}[\p{L}\p{Nd} '\u2019(),\-]{0,39}[*_]*:[*_]*\s+(?=\S)", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+	// "Filename (no extension): ", "Option 1: ", or a lead-in written as prose on the name's line
+	// ("Sure! Here's a suggested filename: ", "Based on the description, a suitable filename would be: ").
+	// Starts with a letter, holds only words, digits, spaces and simple punctuation, up to 80
+	// characters, and must be followed by a space, so a time such as "sunset-at-5:30pm" is not a label.
+	// A "." or "!" counts only where it ends a sentence, before a space, so "st.-louis-arch: day 2"
+	// keeps its name
+	private static readonly Regex NameLabel = new(@"^[*_]*\p{L}(?:[\p{L}\p{Nd} '\u2019(),\-]|[.!](?=\s)){0,79}[*_]*:[*_]*\s+(?=\S)", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
 
 	private static bool IsCodeFence(string line) =>
 		line.StartsWith("```", StringComparison.Ordinal)
