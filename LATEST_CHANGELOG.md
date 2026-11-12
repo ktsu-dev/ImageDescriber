@@ -1,6 +1,6 @@
-## v1.2.18-pre.1 (prerelease)
+## v1.2.18-pre.2 (prerelease)
 
-Changes since v1.2.17:
+Changes since v1.2.18-pre.1:
 
-- Bump TestableIO.System.IO.Abstractions.TestingHelpers from 22.3.0 to 23.0.0 (dependabot[bot])
+- Bump MSTest.Sdk from 4.5.2 to 4.5.3 (dependabot[bot])
 
