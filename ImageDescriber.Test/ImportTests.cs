@@ -2,6 +2,9 @@
 
 namespace ktsu.ImageDescriber.Tests;
 
+using System.IO.Abstractions.TestingHelpers;
+
+using ktsu.AppDataStorage;
 using ktsu.ImageDescriber.Verbs;
 using ktsu.Semantics.Paths;
 using ktsu.Semantics.Strings;
@@ -574,5 +577,94 @@ public class ImportTests
 			Program.Settings = originalSettings;
 			File.Delete(file);
 		}
+	}
+
+	private static (bool Failed, string Output) RunImport(string extension, string content, PersistentState settings)
+	{
+		PersistentState originalSettings = Program.Settings;
+		TextWriter originalOut = Console.Out;
+		string file = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + extension);
+		File.WriteAllText(file, content);
+
+		// A successful import saves the store; keep that off the real application data directory.
+		AppData.ConfigureForTesting(() => new MockFileSystem());
+		try
+		{
+			Program.Settings = settings;
+			using StringWriter output = new();
+			Console.SetOut(output);
+
+			Import import = new();
+			import.Run(new Import { InputPath = file });
+			return (import.Failed, output.ToString());
+		}
+		finally
+		{
+			Console.SetOut(originalOut);
+			Program.Settings = originalSettings;
+			AppData.ResetFileSystem();
+			File.Delete(file);
+		}
+	}
+
+	[TestMethod]
+	public void RunFailsWhenEveryCsvRowHasAnInvalidHash()
+	{
+		PersistentState settings = new();
+		string content = CsvWithRows(
+			"abc,photo.jpg,,llava,2026-01-02T03:04:05.0000000Z,10,A photo.",
+			$"{new string('z', 64)},photo.jpg,,llava,2026-01-02T03:04:05.0000000Z,10,A photo.");
+
+		(bool failed, string output) = RunImport(".csv", content, settings);
+
+		Assert.IsTrue(failed, output);
+		Assert.IsEmpty(settings.Descriptions);
+		Assert.Contains("Import failed:", output);
+		Assert.Contains("Skipped:         2", output);
+		Assert.DoesNotContain("Import complete.", output);
+	}
+
+	[TestMethod]
+	public void RunFailsWhenEveryJsonEntryIsRejected()
+	{
+		PersistentState settings = new();
+
+		(bool failed, string output) = RunImport(".json", "[{\"Hash\":\"\"},null,{\"Hash\":\"abc\"}]", settings);
+
+		Assert.IsTrue(failed, output);
+		Assert.IsEmpty(settings.Descriptions);
+		Assert.DoesNotContain("Import complete.", output);
+	}
+
+	[TestMethod]
+	public void RunImportsCamelCaseJson()
+	{
+		PersistentState settings = new();
+		string hash = new('a', 64);
+		string json = $"[{{\"hash\":\"{hash}\",\"description\":\"A dog\",\"knownPaths\":[],\"fileSizeBytes\":10}}]";
+
+		(bool failed, string output) = RunImport(".json", json, settings);
+
+		Assert.IsFalse(failed, output);
+		Assert.IsTrue(settings.Descriptions.TryGetValue(hash, out ImageDescription? stored), output);
+		Assert.AreEqual("A dog", stored.Description);
+		Assert.AreEqual(10, stored.FileSizeBytes);
+	}
+
+	[TestMethod]
+	public void RunSucceedsWhenReimportingAnExportThatIsAlreadyStored()
+	{
+		PersistentState settings = new();
+		string content = CsvWithRows(GoodCsvRow('d'), GoodCsvRow('e'));
+
+		(bool firstFailed, string firstOutput) = RunImport(".csv", content, settings);
+		Assert.IsFalse(firstFailed, firstOutput);
+
+		(bool failed, string output) = RunImport(".csv", content, settings);
+
+		Assert.IsFalse(failed, output);
+		Assert.Contains("Import complete.", output);
+		Assert.Contains("New entries:     0", output);
+		Assert.HasCount(2, settings.Descriptions);
 	}
 }
