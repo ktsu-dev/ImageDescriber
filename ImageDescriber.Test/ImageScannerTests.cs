@@ -165,6 +165,34 @@ public class ImageScannerTests
 		}
 	}
 
+	[TestMethod]
+	public void IsLinkedDirectoryIsFalseWithoutTheReparsePointAttribute() =>
+		Assert.IsFalse(ImageScanner.IsLinkedDirectory(FileAttributes.Directory, Path.GetTempPath()));
+
+	[TestMethod]
+	public void IsLinkedDirectoryIsFalseForAReparsePointThatIsNotALink() =>
+		// A cloud-synced folder carries the attribute without being a link
+		Assert.IsFalse(ImageScanner.IsLinkedDirectory(FileAttributes.Directory | FileAttributes.ReparsePoint, Path.GetTempPath()));
+
+	[TestMethod]
+	public void IsLinkedDirectoryIsTrueForADirectorySymlink()
+	{
+		string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+		Directory.CreateDirectory(tempDir);
+		string link = Path.Combine(tempDir, "link");
+
+		try
+		{
+			CreateDirectoryLinkOrSkip(link, tempDir);
+
+			Assert.IsTrue(ImageScanner.IsLinkedDirectory(FileAttributes.Directory | FileAttributes.ReparsePoint, link));
+		}
+		finally
+		{
+			Directory.Delete(tempDir, true);
+		}
+	}
+
 	private static void CreateDirectoryLinkOrSkip(string link, string target)
 	{
 		try

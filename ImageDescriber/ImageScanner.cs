@@ -55,7 +55,7 @@ internal static class ImageScanner
 			options)
 		{
 			ShouldIncludePredicate = (ref entry) => !entry.IsDirectory,
-			ShouldRecursePredicate = (ref entry) => !IsLinkedDirectory(ref entry),
+			ShouldRecursePredicate = (ref entry) => !IsLinkedDirectory(entry.Attributes, entry.ToFullPath()),
 		};
 
 		List<AbsoluteFilePath> imageFiles = [];
@@ -82,28 +82,17 @@ internal static class ImageScanner
 	}
 
 	/// <summary>
-	/// Whether a directory entry is a symbolic link or junction. Other reparse points, such as
-	/// OneDrive and other cloud-synced folders on Windows, are real folders and are still scanned.
+	/// Whether a directory is a symbolic link or junction. Other reparse points, such as OneDrive
+	/// and other cloud-synced folders on Windows, are real folders and are still scanned.
 	/// </summary>
-	private static bool IsLinkedDirectory(ref FileSystemEntry entry)
+	internal static bool IsLinkedDirectory(FileAttributes attributes, string fullPath)
 	{
-		if ((entry.Attributes & FileAttributes.ReparsePoint) == 0)
+		if ((attributes & FileAttributes.ReparsePoint) == 0)
 		{
 			return false;
 		}
 
-		try
-		{
-			return new DirectoryInfo(entry.ToFullPath()).LinkTarget is not null;
-		}
-		catch (IOException)
-		{
-			return true;
-		}
-		catch (UnauthorizedAccessException)
-		{
-			return true;
-		}
+		return new DirectoryInfo(fullPath).LinkTarget is not null;
 	}
 
 	/// <summary>
