@@ -892,13 +892,13 @@ public class ScanTests
 	}
 
 	[TestMethod]
-	public void AFailedRequestReportsOllamasErrorMessage()
+	public async Task AFailedRequestReportsOllamasErrorMessage()
 	{
 		using HttpListener listener = StartFakeOllama(out string endpoint);
 		try
 		{
-			HttpRequestException ex = Assert.ThrowsExactly<HttpRequestException>(() =>
-				OllamaClient.GenerateAsync(endpoint.As<OllamaEndpoint>(), MissingModel.As<OllamaModelName>(), "hello").GetAwaiter().GetResult());
+			HttpRequestException ex = await Assert.ThrowsExactlyAsync<HttpRequestException>(() =>
+				OllamaClient.GenerateAsync(endpoint.As<OllamaEndpoint>(), MissingModel.As<OllamaModelName>(), "hello")).ConfigureAwait(false);
 
 			Assert.AreEqual(HttpStatusCode.NotFound, ex.StatusCode);
 			Assert.Contains($"model \"{MissingModel}\" not found, try pulling it first", ex.Message);

@@ -57,6 +57,30 @@ internal sealed class Scan : BaseVerb<Scan>
 		return base.ValidateArgs();
 	}
 
+	/// <summary>
+	/// Checks that Ollama answers and has the model, printing why not when it doesn't. The model is
+	/// checked before hashing, so a model that was never pulled stops the scan with the fix instead
+	/// of failing every image with the same error after the whole library is hashed.
+	/// </summary>
+	private static bool IsOllamaReady(Scan options)
+	{
+		Console.WriteLine("Checking Ollama availability...");
+		if (!OllamaClient.IsAvailableAsync(options.Endpoint).GetAwaiter().GetResult())
+		{
+			Console.WriteLine($"Error: Ollama is not available at {options.Endpoint}");
+			Console.WriteLine("Make sure Ollama is running and the endpoint is correct.");
+			return false;
+		}
+
+		if (OllamaClient.IsModelInstalledAsync(options.Endpoint, options.Model).GetAwaiter().GetResult() == false)
+		{
+			Console.WriteLine($"Error: Model '{options.Model}' is not installed in Ollama at {options.Endpoint}. Run: ollama pull {options.Model}");
+			return false;
+		}
+
+		return true;
+	}
+
 	internal override void Run(Scan options)
 	{
 		Console.WriteLine($"Scanning: {options.Path}");
@@ -72,22 +96,8 @@ internal sealed class Scan : BaseVerb<Scan>
 		}
 
 		// Step 1: Check Ollama availability
-		Console.WriteLine("Checking Ollama availability...");
-		bool isAvailable = OllamaClient.IsAvailableAsync(options.Endpoint).GetAwaiter().GetResult();
-		if (!isAvailable)
+		if (!IsOllamaReady(options))
 		{
-			Console.WriteLine($"Error: Ollama is not available at {options.Endpoint}");
-			Console.WriteLine("Make sure Ollama is running and the endpoint is correct.");
-			Failed = true;
-			return;
-		}
-
-		// Check the model before hashing, so a model that was never pulled stops the scan with the
-		// fix instead of failing every image with the same error after the whole library is hashed
-		bool? isModelInstalled = OllamaClient.IsModelInstalledAsync(options.Endpoint, options.Model).GetAwaiter().GetResult();
-		if (isModelInstalled == false)
-		{
-			Console.WriteLine($"Error: Model '{options.Model}' is not installed in Ollama at {options.Endpoint}. Run: ollama pull {options.Model}");
 			Failed = true;
 			return;
 		}

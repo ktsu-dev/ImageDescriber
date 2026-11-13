@@ -100,9 +100,12 @@ internal static class OllamaClient
 			string json = JsonSerializer.Serialize(new OllamaShowRequest { Model = model, Name = model }, OllamaJsonContext.Default.OllamaShowRequest);
 			using StringContent content = new(json, Encoding.UTF8, "application/json");
 			using HttpResponseMessage response = await HttpClient.PostAsync(GetShowUri(endpoint), content).ConfigureAwait(false);
-			return response.IsSuccessStatusCode ? true
-				: response.StatusCode == HttpStatusCode.NotFound ? false
-				: null;
+			if (response.IsSuccessStatusCode)
+			{
+				return true;
+			}
+
+			return response.StatusCode == HttpStatusCode.NotFound ? false : null;
 		}
 		catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or ArgumentException)
 		{
