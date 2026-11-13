@@ -82,6 +82,16 @@ internal sealed class Scan : BaseVerb<Scan>
 			return;
 		}
 
+		// Check the model before hashing, so a model that was never pulled stops the scan with the
+		// fix instead of failing every image with the same error after the whole library is hashed
+		bool? isModelInstalled = OllamaClient.IsModelInstalledAsync(options.Endpoint, options.Model).GetAwaiter().GetResult();
+		if (isModelInstalled == false)
+		{
+			Console.WriteLine($"Error: Model '{options.Model}' is not installed in Ollama at {options.Endpoint}. Run: ollama pull {options.Model}");
+			Failed = true;
+			return;
+		}
+
 		Console.WriteLine("Ollama is available.");
 		Console.WriteLine();
 
