@@ -854,11 +854,83 @@ public class ScanTests
 		Assert.Contains("Error: Invalid Ollama endpoint \"not a url\"", output.ToString());
 	}
 
+	private const string MissingModel = "missing-model";
+
+	[TestMethod]
+	public void ScanStopsBeforeHashingWithAPullHintWhenTheModelIsNotInstalled()
+	{
+		string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+		Directory.CreateDirectory(tempDir);
+		PersistentState originalSettings = Program.Settings;
+		TextWriter originalOut = Console.Out;
+
+		using HttpListener listener = StartFakeOllama(out string endpoint);
+		using StringWriter output = new();
+		bool failed;
+		try
+		{
+			File.WriteAllBytes(Path.Combine(tempDir, "photo.jpg"), [0xFF, 0xD8]);
+			Program.Settings = new PersistentState();
+			Console.SetOut(output);
+
+			Scan scan = new() { PathString = tempDir, EndpointString = endpoint, ModelString = MissingModel };
+			scan.Run(scan);
+			failed = scan.Failed;
+		}
+		finally
+		{
+			Console.SetOut(originalOut);
+			Program.Settings = originalSettings;
+			listener.Stop();
+			Directory.Delete(tempDir, true);
+		}
+
+		string text = output.ToString();
+		Assert.IsTrue(failed);
+		Assert.Contains($"Error: Model '{MissingModel}' is not installed in Ollama at {endpoint}. Run: ollama pull {MissingModel}", text);
+		Assert.DoesNotContain("Hashing image files", text);
+	}
+
+	[TestMethod]
+	public async Task AFailedRequestReportsOllamasErrorMessage()
+	{
+		using HttpListener listener = StartFakeOllama(out string endpoint);
+		try
+		{
+			HttpRequestException ex = await Assert.ThrowsExactlyAsync<HttpRequestException>(() =>
+				OllamaClient.GenerateAsync(endpoint.As<OllamaEndpoint>(), MissingModel.As<OllamaModelName>(), "hello")).ConfigureAwait(false);
+
+			Assert.AreEqual(HttpStatusCode.NotFound, ex.StatusCode);
+			Assert.Contains($"model \"{MissingModel}\" not found, try pulling it first", ex.Message);
+		}
+		finally
+		{
+			listener.Stop();
+		}
+	}
+
+	[TestMethod]
+	public void IsModelInstalledIsTrueForAPulledModel()
+	{
+		using HttpListener listener = StartFakeOllama(out string endpoint);
+		try
+		{
+			bool? installed = OllamaClient.IsModelInstalledAsync(endpoint.As<OllamaEndpoint>(), "test-model".As<OllamaModelName>()).GetAwaiter().GetResult();
+
+			Assert.IsTrue(installed);
+		}
+		finally
+		{
+			listener.Stop();
+		}
+	}
+
 	/// <summary>
 	/// Serves /api/generate like Ollama, except that a request mentioning bad.jpg gets an HTML
 	/// page, as a proxy or the wrong service on the endpoint would return, one mentioning
 	/// empty.jpg gets a blank answer, and one mentioning cut.jpg gets an answer the token limit
-	/// cut off.
+	/// cut off. A request naming the model missing-model gets the 404 Ollama sends for a model
+	/// that hasn't been pulled, from /api/show and /api/generate alike.
 	/// </summary>
 	private static HttpListener StartFakeOllama(out string endpoint)
 	{
@@ -892,6 +964,16 @@ public class ScanTests
 
 				using StreamReader reader = new(context.Request.InputStream);
 				string body = await reader.ReadToEndAsync().ConfigureAwait(false);
+				if (body.Contains(MissingModel, StringComparison.Ordinal))
+				{
+					context.Response.StatusCode = 404;
+					context.Response.ContentType = "application/json";
+					byte[] notFound = Encoding.UTF8.GetBytes($"{{\"error\":\"model \\\"{MissingModel}\\\" not found, try pulling it first\"}}");
+					await context.Response.OutputStream.WriteAsync(notFound).ConfigureAwait(false);
+					context.Response.Close();
+					continue;
+				}
+
 				bool isBad = body.Contains("bad.jpg", StringComparison.Ordinal);
 				context.Response.ContentType = isBad ? "text/html" : "application/json";
 				string answer = isBad ? "<html>Not Ollama</html>"

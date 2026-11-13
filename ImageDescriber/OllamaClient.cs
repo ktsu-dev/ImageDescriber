@@ -3,6 +3,7 @@
 namespace ktsu.ImageDescriber;
 
 using System.IO;
+using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -61,6 +62,8 @@ internal static class OllamaClient
 
 	internal static Uri GetGenerateUri(OllamaEndpoint endpoint) => new(GetBaseUri(endpoint), "api/generate");
 
+	internal static Uri GetShowUri(OllamaEndpoint endpoint) => new(GetBaseUri(endpoint), "api/show");
+
 	internal static async Task<bool> IsAvailableAsync(OllamaEndpoint endpoint)
 	{
 		try
@@ -80,6 +83,33 @@ internal static class OllamaClient
 		{
 			// GetBaseUri rejects anything NormalizeEndpoint can't turn into an http or https address
 			return false;
+		}
+	}
+
+	/// <summary>
+	/// Asks Ollama whether <paramref name="model"/> is installed. Returns <see langword="false"/> only
+	/// when Ollama answers 404, as it does for a model that hasn't been pulled, and
+	/// <see langword="null"/> when the answer says nothing either way (an older server, a proxy, a
+	/// network error), so the scan isn't blocked on a check it can't make.
+	/// </summary>
+	internal static async Task<bool?> IsModelInstalledAsync(OllamaEndpoint endpoint, OllamaModelName model)
+	{
+		try
+		{
+			// Current Ollama reads "model"; releases before it read "name"
+			string json = JsonSerializer.Serialize(new OllamaShowRequest { Model = model, Name = model }, OllamaJsonContext.Default.OllamaShowRequest);
+			using StringContent content = new(json, Encoding.UTF8, "application/json");
+			using HttpResponseMessage response = await HttpClient.PostAsync(GetShowUri(endpoint), content).ConfigureAwait(false);
+			if (response.IsSuccessStatusCode)
+			{
+				return true;
+			}
+
+			return response.StatusCode == HttpStatusCode.NotFound ? false : null;
+		}
+		catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or ArgumentException)
+		{
+			return null;
 		}
 	}
 
@@ -128,12 +158,34 @@ internal static class OllamaClient
 		using StringContent content = new(jsonContent, Encoding.UTF8, "application/json");
 
 		using HttpResponseMessage response = await HttpClient.PostAsync(GetGenerateUri(endpoint), content).ConfigureAwait(false);
-		response.EnsureSuccessStatusCode();
-
 		string responseBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+		if (!response.IsSuccessStatusCode)
+		{
+			// Ollama explains a failure in the body, such as a model that hasn't been pulled
+			string? error = ReadError(responseBody);
+			string status = $"Ollama returned {(int)response.StatusCode} ({response.ReasonPhrase})";
+			throw new HttpRequestException(error is null ? $"{status}." : $"{status}: {error}", null, response.StatusCode);
+		}
+
 		OllamaResponse? ollamaResponse = JsonSerializer.Deserialize(responseBody, OllamaJsonContext.Default.OllamaResponse);
 
 		return ReadAnswer(ollamaResponse);
+	}
+
+	/// <summary>
+	/// Returns the <c>error</c> text of an Ollama error body, or null when the body isn't one.
+	/// </summary>
+	internal static string? ReadError(string body)
+	{
+		try
+		{
+			string? error = JsonSerializer.Deserialize(body, OllamaJsonContext.Default.OllamaError)?.Error;
+			return string.IsNullOrWhiteSpace(error) ? null : error.Trim();
+		}
+		catch (JsonException)
+		{
+			return null;
+		}
 	}
 
 	/// <summary>
@@ -160,6 +212,8 @@ internal static class OllamaClient
 
 [JsonSerializable(typeof(OllamaRequest))]
 [JsonSerializable(typeof(OllamaResponse))]
+[JsonSerializable(typeof(OllamaShowRequest))]
+[JsonSerializable(typeof(OllamaError))]
 internal sealed partial class OllamaJsonContext : JsonSerializerContext
 {
 }
@@ -190,4 +244,19 @@ internal sealed class OllamaResponse
 	/// </summary>
 	[JsonPropertyName("done_reason")]
 	public string? DoneReason { get; set; }
+}
+
+internal sealed class OllamaShowRequest
+{
+	[JsonPropertyName("model")]
+	public string Model { get; set; } = string.Empty;
+
+	[JsonPropertyName("name")]
+	public string Name { get; set; } = string.Empty;
+}
+
+internal sealed class OllamaError
+{
+	[JsonPropertyName("error")]
+	public string? Error { get; set; }
 }
