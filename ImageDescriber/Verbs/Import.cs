@@ -20,8 +20,11 @@ internal sealed class Import : BaseVerb<Import>
 {
 	internal override bool WritesStore => true;
 
+	// Export writes PascalCase, but JS, Python and jq tooling usually write camelCase, and a
+	// case-sensitive match would leave every Hash empty and reject the whole file.
 	private static readonly JsonSerializerOptions JsonOptions = new()
 	{
+		PropertyNameCaseInsensitive = true,
 		Converters = { new RoundTripStringJsonConverterFactory() },
 	};
 
@@ -79,8 +82,19 @@ internal sealed class Import : BaseVerb<Import>
 			return;
 		}
 
-		(int newCount, int updatedCount, int skippedCount) = MergeEntries(entries);
+		(int newCount, int updatedCount, int skippedCount) = MergeEntries(entries, out int rejectedCount);
 		skippedCount += unreadableCount;
+
+		// Every entry that was read was rejected (no hash, an invalid one, or null), so nothing in the
+		// file is usable. Re-importing an existing export also merges nothing, but those entries are
+		// already present rather than rejected, so that still succeeds.
+		if (entries.Count > 0 && rejectedCount == entries.Count)
+		{
+			Console.WriteLine($"Import failed: none of the {entries.Count + unreadableCount} entries in {inputFile} could be imported.");
+			Console.WriteLine($"  Skipped:         {skippedCount}");
+			Failed = true;
+			return;
+		}
 
 		Program.Settings.Save();
 
@@ -106,11 +120,23 @@ internal sealed class Import : BaseVerb<Import>
 		}
 	}
 
-	internal static (int NewCount, int UpdatedCount, int SkippedCount) MergeEntries(List<ImageDescription> entries)
+	internal static (int NewCount, int UpdatedCount, int SkippedCount) MergeEntries(List<ImageDescription> entries) =>
+		MergeEntries(entries, out _);
+
+	/// <summary>
+	/// Adds the entries to the store, merging the known paths of any already present.
+	/// </summary>
+	/// <param name="entries">The entries read from the import file.</param>
+	/// <param name="rejectedCount">
+	/// How many of <paramref name="entries"/> were refused outright (null, or a missing or invalid hash).
+	/// They are counted in SkippedCount too, alongside entries that were already present.
+	/// </param>
+	internal static (int NewCount, int UpdatedCount, int SkippedCount) MergeEntries(List<ImageDescription> entries, out int rejectedCount)
 	{
 		int newCount = 0;
 		int updatedCount = 0;
 		int skippedCount = 0;
+		rejectedCount = 0;
 
 		// A JSON null in the exported array deserializes to a null entry rather than a JsonException,
 		// so it is skipped here like an entry with no hash instead of ending the import mid-merge.
@@ -119,6 +145,7 @@ internal sealed class Import : BaseVerb<Import>
 			if (entry is null || string.IsNullOrEmpty(entry.Hash))
 			{
 				skippedCount++;
+				rejectedCount++;
 				continue;
 			}
 
@@ -128,6 +155,7 @@ internal sealed class Import : BaseVerb<Import>
 			{
 				Console.WriteLine($"  Skipping entry with invalid hash \"{entry.Hash}\" ({entry.SuggestedFileName}): expected {ImageHasher.HashLength} hex characters.");
 				skippedCount++;
+				rejectedCount++;
 				continue;
 			}
 
