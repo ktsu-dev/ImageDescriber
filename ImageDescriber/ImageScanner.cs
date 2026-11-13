@@ -4,6 +4,7 @@ namespace ktsu.ImageDescriber;
 
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Enumeration;
 
 using ktsu.Semantics.Paths;
 using ktsu.Semantics.Strings;
@@ -45,9 +46,21 @@ internal static class ImageScanner
 			IgnoreInaccessible = true,
 		};
 
+		// On Linux and macOS a plain recursive enumeration follows directory symlinks, so a link back up
+		// the tree lists every image once per level until the OS gives up, and two such links never
+		// finish. Don't descend into a linked directory; linked files are still listed.
+		FileSystemEnumerable<string> files = new(
+			path.WeakString,
+			(ref entry) => entry.ToFullPath(),
+			options)
+		{
+			ShouldIncludePredicate = (ref entry) => !entry.IsDirectory,
+			ShouldRecursePredicate = (ref entry) => !IsLinkedDirectory(entry.Attributes, entry.ToFullPath()),
+		};
+
 		List<AbsoluteFilePath> imageFiles = [];
 		int unsupported = 0;
-		foreach (string file in Directory.EnumerateFiles(path.WeakString, "*", options))
+		foreach (string file in files)
 		{
 			string extension = Path.GetExtension(file);
 			if (IsImageExtension(extension))
@@ -66,6 +79,20 @@ internal static class ImageScanner
 		}
 
 		return imageFiles;
+	}
+
+	/// <summary>
+	/// Whether a directory is a symbolic link or junction. Other reparse points, such as OneDrive
+	/// and other cloud-synced folders on Windows, are real folders and are still scanned.
+	/// </summary>
+	internal static bool IsLinkedDirectory(FileAttributes attributes, string fullPath)
+	{
+		if ((attributes & FileAttributes.ReparsePoint) == 0)
+		{
+			return false;
+		}
+
+		return new DirectoryInfo(fullPath).LinkTarget is not null;
 	}
 
 	/// <summary>
