@@ -62,7 +62,7 @@ ImageDescriber Stats
 |---|---|
 | `Menu` *(default)* | Interactive console menu. |
 | `Scan` | Hash images in a directory and describe each unique one. |
-| `Search` | Keyword search across stored descriptions and file names. An entry matches when every keyword starts a word, in any order: `sun` finds "sunset", but `cat` doesn't find "located". |
+| `Search` | Keyword search across stored descriptions, suggested file names and known paths, folder names included. An entry matches when every keyword starts a word, in any order: `sun` finds "sunset", but `cat` doesn't find "located". |
 | `Configure` | Edit endpoint, model, concurrency, and prompt templates. |
 | `Export` | Dump the database to JSON or CSV. |
 | `Import` | Merge a JSON or CSV export back into the database. |

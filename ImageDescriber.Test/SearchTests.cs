@@ -109,6 +109,55 @@ public class SearchTests
 		Assert.IsFalse(Search.MatchesAllTerms(EntryAt("An empty room.", "holiday-2024.beach_cat.jpg"), Search.SplitQuery(query)));
 	}
 
+	[TestMethod]
+	[DataRow("vacation")]
+	[DataRow("Vacation 2024")]
+	[DataRow("vacation sofa")]
+	public void SearchMatchesAFolderNameInAKnownPath(string query)
+	{
+		Program.Settings = new PersistentState();
+		string hash = new('f', ImageHasher.HashLength);
+		Program.Settings.Descriptions[hash] = new ImageDescription
+		{
+			Hash = hash,
+			Description = "A cat on a sofa.",
+			KnownPaths = [Path.Combine(Path.GetTempPath(), "photos", "vacation-2024", "img1.jpg").As<AbsoluteFilePath>()],
+		};
+
+		string output = CaptureConsole(() => new Search().Run(new Search { Query = query }));
+
+		StringAssert.Contains(output, "1 match(es)");
+	}
+
+	[TestMethod]
+	public void SearchDoesNotMatchAKeywordInsideAFolderNameWord()
+	{
+		ImageDescription entry = new()
+		{
+			Hash = new string('f', ImageHasher.HashLength),
+			Description = "A cat on a sofa.",
+			KnownPaths = [Path.Combine(Path.GetTempPath(), "photos", "vacation", "img1.jpg").As<AbsoluteFilePath>()],
+		};
+
+		Assert.IsFalse(Search.MatchesAllTerms(entry, Search.SplitQuery("cation")));
+	}
+
+	[TestMethod]
+	[DataRow("tabby")]
+	[DataRow("tabby sofa")]
+	public void SearchMatchesTheSuggestedFileName(string query)
+	{
+		ImageDescription entry = new()
+		{
+			Hash = new string('f', ImageHasher.HashLength),
+			Description = "A cat on a sofa.",
+			SuggestedFileName = "tabby-napping.jpg".As<FileName>(),
+			KnownPaths = [Path.Combine(Path.GetTempPath(), "IMG_0001.jpg").As<AbsoluteFilePath>()],
+		};
+
+		Assert.IsTrue(Search.MatchesAllTerms(entry, Search.SplitQuery(query)));
+	}
+
 	private static ImageDescription EntryAt(string description, string fileName) => new()
 	{
 		Hash = new string('e', ImageHasher.HashLength),
