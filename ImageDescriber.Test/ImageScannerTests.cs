@@ -263,6 +263,48 @@ public class ImageScannerTests
 	}
 
 	[TestMethod]
+	public void ScanForImagesFindsHiddenFilesAndFilesInHiddenDirectories()
+	{
+		string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+		string hiddenDir = Path.Combine(tempDir, ".hidden");
+		string visibleDir = Path.Combine(tempDir, "vis");
+		Directory.CreateDirectory(hiddenDir);
+		Directory.CreateDirectory(visibleDir);
+
+		try
+		{
+			string inHiddenDir = Path.Combine(hiddenDir, "a.jpg");
+			string hiddenFile = Path.Combine(tempDir, ".c.png");
+			string visibleFile = Path.Combine(visibleDir, "b.jpg");
+			File.WriteAllBytes(inHiddenDir, [0xFF, 0xD8]);
+			File.WriteAllBytes(hiddenFile, [0x89, 0x50]);
+			File.WriteAllBytes(visibleFile, [0xFF, 0xD8]);
+
+			// A leading dot is what makes an entry hidden on Linux and macOS; Windows uses the attribute.
+			if (OperatingSystem.IsWindows())
+			{
+				File.SetAttributes(hiddenDir, File.GetAttributes(hiddenDir) | FileAttributes.Hidden);
+				File.SetAttributes(hiddenFile, File.GetAttributes(hiddenFile) | FileAttributes.Hidden | FileAttributes.System);
+			}
+
+			IReadOnlyList<AbsoluteFilePath> results = ImageScanner.ScanForImages(tempDir.As<AbsoluteDirectoryPath>());
+
+			CollectionAssert.AreEquivalent(
+				new[] { inHiddenDir, hiddenFile, visibleFile }.Select(Path.GetFullPath).ToList(),
+				results.Select(r => Path.GetFullPath(r.WeakString)).ToList());
+		}
+		finally
+		{
+			if (OperatingSystem.IsWindows())
+			{
+				File.SetAttributes(Path.Combine(tempDir, ".c.png"), FileAttributes.Normal);
+			}
+
+			Directory.Delete(tempDir, true);
+		}
+	}
+
+	[TestMethod]
 	public void ScanForImagesReturnsEmptyForNonExistentDirectory()
 	{
 		string fakePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString(), "nonexistent");

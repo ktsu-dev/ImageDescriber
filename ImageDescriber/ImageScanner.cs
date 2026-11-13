@@ -40,10 +40,13 @@ internal static class ImageScanner
 
 		// The SearchOption overload stops at the first folder it can't open, which on Windows is
 		// any drive or profile root, so skip unreadable folders and scan the rest of the tree.
+		// EnumerationOptions skips Hidden and System entries by default, which on Linux and macOS
+		// is every dot-named file and folder, so clear that to scan what the SearchOption overload did.
 		EnumerationOptions options = new()
 		{
 			RecurseSubdirectories = true,
 			IgnoreInaccessible = true,
+			AttributesToSkip = FileAttributes.None,
 		};
 
 		// On Linux and macOS a plain recursive enumeration follows directory symlinks, so a link back up
