@@ -347,7 +347,10 @@ internal sealed class Scan : BaseVerb<Scan>
 			name = name.Replace("--", "-", StringComparison.Ordinal);
 		}
 
-		name = CapLength(name.Trim('-', ' ', '.'));
+		// Trim the decoration again now the extension is gone: a stem wrapped on its own, with the
+		// extension outside the wrapping ("`sunset-beach`.jpg", "'sunset-beach'.jpg"), still ends in its
+		// closing mark here, which the trim before the extension check could not reach
+		name = CapLength(TrimDecoration(name));
 
 		if (string.IsNullOrEmpty(name))
 		{
