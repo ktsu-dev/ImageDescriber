@@ -88,6 +88,95 @@ public class ImageScannerTests
 		}
 	}
 
+	[TestMethod]
+	public void ScanForImagesListsEachImageOnceUnderADirectorySymlinkLoop()
+	{
+		string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+		string subDir = Path.Combine(tempDir, "a");
+		Directory.CreateDirectory(subDir);
+		File.WriteAllBytes(Path.Combine(subDir, "x.jpg"), [0xFF, 0xD8]);
+
+		try
+		{
+			CreateDirectoryLinkOrSkip(Path.Combine(subDir, "loop"), tempDir);
+
+			IReadOnlyList<AbsoluteFilePath> results = ImageScanner.ScanForImages(tempDir.As<AbsoluteDirectoryPath>());
+
+			Assert.AreEqual(1, results.Count);
+			Assert.AreEqual(Path.Combine(subDir, "x.jpg"), results[0].WeakString);
+		}
+		finally
+		{
+			Directory.Delete(tempDir, true);
+		}
+	}
+
+	[TestMethod]
+	public void ScanForImagesFinishesWithTwoSiblingSymlinkLoops()
+	{
+		string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+		string subDir = Path.Combine(tempDir, "a");
+		Directory.CreateDirectory(subDir);
+		File.WriteAllBytes(Path.Combine(subDir, "x.jpg"), [0xFF, 0xD8]);
+
+		try
+		{
+			CreateDirectoryLinkOrSkip(Path.Combine(subDir, "loop"), tempDir);
+			CreateDirectoryLinkOrSkip(Path.Combine(subDir, "loop2"), tempDir);
+
+			// Following the links branches exponentially and never finishes, so bound the wait
+			Task<IReadOnlyList<AbsoluteFilePath>> scan = Task.Run(() => ImageScanner.ScanForImages(tempDir.As<AbsoluteDirectoryPath>()));
+
+			Assert.IsTrue(scan.Wait(TimeSpan.FromSeconds(30)), "Discovery did not finish");
+			Assert.AreEqual(1, scan.Result.Count);
+		}
+		finally
+		{
+			Directory.Delete(tempDir, true);
+		}
+	}
+
+	[TestMethod]
+	public void ScanForImagesStillListsASymlinkedImageFile()
+	{
+		string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+		Directory.CreateDirectory(tempDir);
+		string target = Path.Combine(tempDir, "real.jpg");
+		File.WriteAllBytes(target, [0xFF, 0xD8]);
+
+		try
+		{
+			try
+			{
+				File.CreateSymbolicLink(Path.Combine(tempDir, "alias.jpg"), target);
+			}
+			catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+			{
+				Assert.Inconclusive($"Symbolic links can't be created here: {ex.Message}");
+			}
+
+			IReadOnlyList<AbsoluteFilePath> results = ImageScanner.ScanForImages(tempDir.As<AbsoluteDirectoryPath>());
+
+			Assert.AreEqual(2, results.Count);
+		}
+		finally
+		{
+			Directory.Delete(tempDir, true);
+		}
+	}
+
+	private static void CreateDirectoryLinkOrSkip(string link, string target)
+	{
+		try
+		{
+			Directory.CreateSymbolicLink(link, target);
+		}
+		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+		{
+			Assert.Inconclusive($"Symbolic links can't be created here: {ex.Message}");
+		}
+	}
+
 	private static bool CanList(string directory)
 	{
 		try
