@@ -389,19 +389,7 @@ internal sealed class Import : BaseVerb<Import>
 					i = ReadQuotedField(text, i, field, ref line, out bool closed);
 					fieldStarted = true;
 					recordHasContent = true;
-					if (!closed)
-					{
-						malformed = true;
-					}
-					else if (i < text.Length && text[i] is not (',' or '\r' or '\n'))
-					{
-						malformed = true;
-						while (i < text.Length && text[i] != '\n')
-						{
-							i++;
-						}
-					}
-
+					malformed |= !closed || SkipStrayTextAfterQuote(text, ref i);
 					break;
 				case ',':
 					fields.Add(field.ToString());
@@ -441,6 +429,26 @@ internal sealed class Import : BaseVerb<Import>
 			recordHasContent = false;
 			malformed = false;
 		}
+	}
+
+	/// <summary>
+	/// Reports whether a closing quote at <paramref name="i"/> - 1 is followed by anything but a comma, a line
+	/// break or the end of the text. If it is, moves <paramref name="i"/> to the end of the line so parsing picks
+	/// up again at the next one.
+	/// </summary>
+	private static bool SkipStrayTextAfterQuote(string text, ref int i)
+	{
+		if (i >= text.Length || text[i] is ',' or '\r' or '\n')
+		{
+			return false;
+		}
+
+		while (i < text.Length && text[i] != '\n')
+		{
+			i++;
+		}
+
+		return true;
 	}
 
 	/// <summary>
