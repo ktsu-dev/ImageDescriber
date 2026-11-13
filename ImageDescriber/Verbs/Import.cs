@@ -273,8 +273,8 @@ internal sealed class Import : BaseVerb<Import>
 		unreadableCount = 0;
 
 		// Parse the whole text rather than line by line, because a quoted field may span lines.
-		List<(int LineNumber, List<string> Fields)> records = [.. ParseCsvRecords(text)
-			.Where(r => r.Fields.Count > 1 || !string.IsNullOrWhiteSpace(r.Fields[0]))];
+		List<(int LineNumber, List<string> Fields, bool Malformed)> records = [.. ParseCsvRecords(text)
+			.Where(r => r.Malformed || r.Fields.Count > 1 || !string.IsNullOrWhiteSpace(r.Fields[0]))];
 
 		if (records.Count < 2)
 		{
@@ -283,10 +283,19 @@ internal sealed class Import : BaseVerb<Import>
 		}
 
 		// Skip header row
-		foreach ((int lineNumber, List<string> fields) in records.Skip(1))
+		foreach ((int lineNumber, List<string> fields, bool malformed) in records.Skip(1))
 		{
 			try
 			{
+				// A quote that never closes, or text after a closing quote, means the row's
+				// fields can't be told apart, so none of them is trusted.
+				if (malformed)
+				{
+					Console.WriteLine($"  Skipping line {lineNumber}: unbalanced quote.");
+					unreadableCount++;
+					continue;
+				}
+
 				if (fields.Count < 7)
 				{
 					Console.WriteLine($"  Skipping line {lineNumber}: not enough fields.");
@@ -352,12 +361,21 @@ internal sealed class Import : BaseVerb<Import>
 	/// Splits CSV text into records per RFC 4180: a quoted field may contain commas, doubled
 	/// quotes and line breaks. Each record carries the 1-based line it starts on.
 	/// </summary>
-	internal static List<(int LineNumber, List<string> Fields)> ParseCsvRecords(string text)
+	/// <remarks>
+	/// A record is <c>Malformed</c> when a quoted field never closes, or when a closing quote is
+	/// followed by anything but a comma, a line break or the end of the text. A stray quote
+	/// inside a quoted field shows up as the latter; the rest of its line is then skipped so
+	/// the parser picks up again at the next line instead of reading every later row as part
+	/// of one field. A quote inside an unquoted field is kept as an ordinary character.
+	/// </remarks>
+	internal static List<(int LineNumber, List<string> Fields, bool Malformed)> ParseCsvRecords(string text)
 	{
-		List<(int LineNumber, List<string> Fields)> records = [];
+		List<(int LineNumber, List<string> Fields, bool Malformed)> records = [];
 		List<string> fields = [];
 		StringBuilder field = new();
+		bool fieldStarted = false;
 		bool recordHasContent = false;
+		bool malformed = false;
 		int line = 1;
 		int recordLine = 1;
 
@@ -367,13 +385,28 @@ internal sealed class Import : BaseVerb<Import>
 			char c = text[i++];
 			switch (c)
 			{
-				case '"':
-					i = ReadQuotedField(text, i, field, ref line);
+				case '"' when !fieldStarted:
+					i = ReadQuotedField(text, i, field, ref line, out bool closed);
+					fieldStarted = true;
 					recordHasContent = true;
+					if (!closed)
+					{
+						malformed = true;
+					}
+					else if (i < text.Length && text[i] is not (',' or '\r' or '\n'))
+					{
+						malformed = true;
+						while (i < text.Length && text[i] != '\n')
+						{
+							i++;
+						}
+					}
+
 					break;
 				case ',':
 					fields.Add(field.ToString());
 					field.Clear();
+					fieldStarted = false;
 					recordHasContent = true;
 					break;
 				case '\r':
@@ -385,6 +418,7 @@ internal sealed class Import : BaseVerb<Import>
 					break;
 				default:
 					field.Append(c);
+					fieldStarted = true;
 					recordHasContent = true;
 					break;
 			}
@@ -398,20 +432,23 @@ internal sealed class Import : BaseVerb<Import>
 			if (recordHasContent)
 			{
 				fields.Add(field.ToString());
-				records.Add((recordLine, fields));
+				records.Add((recordLine, fields, malformed));
 				fields = [];
 			}
 
 			field.Clear();
+			fieldStarted = false;
 			recordHasContent = false;
+			malformed = false;
 		}
 	}
 
 	/// <summary>
 	/// Reads a quoted field's contents into <paramref name="field"/>, starting just after its
-	/// opening quote, and returns the index just after its closing quote.
+	/// opening quote, and returns the index just after its closing quote. <paramref name="closed"/>
+	/// is false when the text ends before the field's closing quote.
 	/// </summary>
-	private static int ReadQuotedField(string text, int start, StringBuilder field, ref int line)
+	private static int ReadQuotedField(string text, int start, StringBuilder field, ref int line, out bool closed)
 	{
 		int i = start;
 		while (i < text.Length)
@@ -429,10 +466,12 @@ internal sealed class Import : BaseVerb<Import>
 			}
 			else
 			{
+				closed = true;
 				return i;
 			}
 		}
 
+		closed = false;
 		return i;
 	}
 }

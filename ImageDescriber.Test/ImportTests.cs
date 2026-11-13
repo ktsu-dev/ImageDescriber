@@ -312,7 +312,7 @@ public class ImportTests
 	[TestMethod]
 	public void ParseCsvRecordsKeepsLineBreaksInsideQuotedFields()
 	{
-		List<(int LineNumber, List<string> Fields)> records = Import.ParseCsvRecords("h1,h2\r\n\"a\nb\",c\r\n\r\nd,\"e\"\"f\"\n");
+		List<(int LineNumber, List<string> Fields, bool Malformed)> records = Import.ParseCsvRecords("h1,h2\r\n\"a\nb\",c\r\n\r\nd,\"e\"\"f\"\n");
 
 		Assert.HasCount(3, records);
 		Assert.AreSequenceEqual(ExpectedHeader, records[0].Fields);
@@ -536,6 +536,65 @@ public class ImportTests
 		Assert.AreEqual(new string('d', 64), entries[0].Hash);
 		Assert.AreEqual(new string('e', 64), entries[1].Hash);
 		Assert.AreEqual(2, unreadableCount);
+	}
+
+	private static string QuotedCsvRow(char hashChar, string description) =>
+		$"\"{new string(hashChar, 64)}\",\"photo.jpg\",\"\",\"llava\",\"2026-01-02T03:04:05.0000000Z\",\"10\",{description}";
+
+	[TestMethod]
+	public void ParseCsvSkipsARowWithAStrayQuoteAndKeepsTheRowsAfterIt()
+	{
+		List<ImageDescription> entries = Import.ParseCsv(
+			CsvWithRows(
+				QuotedCsvRow('a', "\"A 12\" vinyl record\""),
+				QuotedCsvRow('b', "\"A dog\""),
+				QuotedCsvRow('c', "\"A cat\"")),
+			out int unreadableCount);
+
+		Assert.HasCount(2, entries);
+		Assert.AreEqual(new string('b', 64), entries[0].Hash);
+		Assert.AreEqual("A dog", entries[0].Description);
+		Assert.AreEqual(new string('c', 64), entries[1].Hash);
+		Assert.AreEqual("A cat", entries[1].Description);
+		Assert.AreEqual(1, unreadableCount);
+	}
+
+	[TestMethod]
+	public void ParseCsvSkipsATruncatedLastRowWhoseQuoteNeverCloses()
+	{
+		string csv = CsvWithRows(QuotedCsvRow('a', "\"A cat\"")) + QuotedCsvRow('b', "\"A photo of a dog on a be");
+
+		List<ImageDescription> entries = Import.ParseCsv(csv, out int unreadableCount);
+
+		Assert.HasCount(1, entries);
+		Assert.AreEqual(new string('a', 64), entries[0].Hash);
+		Assert.AreEqual(1, unreadableCount);
+	}
+
+	[TestMethod]
+	public void ParseCsvKeepsAQuoteInsideAnUnquotedField()
+	{
+		List<ImageDescription> entries = Import.ParseCsv(
+			CsvWithRows($"{new string('a', 64)},photo.jpg,,llava,2026-01-02T03:04:05.0000000Z,10,A 12\" vinyl record", GoodCsvRow('b')),
+			out int unreadableCount);
+
+		Assert.HasCount(2, entries);
+		Assert.AreEqual("A 12\" vinyl record", entries[0].Description);
+		Assert.AreEqual(0, unreadableCount);
+	}
+
+	[TestMethod]
+	public void ParseCsvRecordsMarksOnlyTheUnbalancedRecordsMalformed()
+	{
+		List<(int LineNumber, List<string> Fields, bool Malformed)> records =
+			Import.ParseCsvRecords("h1,h2\n\"a\"x,b\nc,\"d\"\n\"e\",\"f");
+
+		Assert.HasCount(4, records);
+		Assert.IsFalse(records[0].Malformed);
+		Assert.IsTrue(records[1].Malformed);
+		Assert.IsFalse(records[2].Malformed);
+		Assert.AreEqual(3, records[2].LineNumber);
+		Assert.IsTrue(records[3].Malformed);
 	}
 
 	[TestMethod]
