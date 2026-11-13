@@ -107,4 +107,22 @@ public class OllamaClientTests
 	[TestMethod]
 	public void ReadAnswerRejectsAnAnswerCutOffAtTheTokenLimit() =>
 		Assert.ThrowsExactly<InvalidDataException>(() => OllamaClient.ReadAnswer(new OllamaResponse { Response = "A dog on a", DoneReason = "length" }));
+
+	[TestMethod]
+	[DataRow("http://127.0.0.1:1")]
+	[DataRow("not a url")]
+	public void IsModelInstalledIsUnknownWhenOllamaCantBeAsked(string endpoint) =>
+		Assert.IsNull(OllamaClient.IsModelInstalledAsync(endpoint.As<OllamaEndpoint>(), "llava".As<OllamaModelName>()).GetAwaiter().GetResult());
+
+	[TestMethod]
+	public void ReadErrorReturnsOllamasErrorText() =>
+		Assert.AreEqual("model \"llava\" not found, try pulling it first", OllamaClient.ReadError("{\"error\":\" model \\\"llava\\\" not found, try pulling it first \"}"));
+
+	[TestMethod]
+	[DataRow("<html>Bad Gateway</html>")]
+	[DataRow("")]
+	[DataRow("{}")]
+	[DataRow("{\"error\":\"  \"}")]
+	public void ReadErrorIsNullForABodyWithNoErrorText(string body) =>
+		Assert.IsNull(OllamaClient.ReadError(body));
 }
