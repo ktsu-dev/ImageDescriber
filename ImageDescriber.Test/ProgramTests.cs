@@ -157,6 +157,10 @@ public class ProgramTests
 	}
 
 	[TestMethod]
+	public void RunReturnsNonZeroWhenTheScanDirectoryIsMissing() =>
+		Assert.AreEqual(1, RunQuietly("Scan", "-p", Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())));
+
+	[TestMethod]
 	public void ImportExplainsAnUnsupportedPath()
 	{
 		string path = Path.Combine(Path.GetTempPath(), "x|y.json");

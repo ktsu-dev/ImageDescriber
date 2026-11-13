@@ -147,7 +147,9 @@ internal abstract class BaseVerb<T> : BaseVerb where T : BaseVerb<T>
 		using StoreLock? storeLock = StoreLock.TryAcquire(StoreLock.StorePath);
 		if (storeLock is null)
 		{
+			// The verb did nothing, so a script or scheduler has to see a failure, not success
 			Console.WriteLine(StoreLock.BusyMessage);
+			Failed = true;
 			return;
 		}
 

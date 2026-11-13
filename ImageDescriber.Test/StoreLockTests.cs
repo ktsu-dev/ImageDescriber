@@ -204,6 +204,7 @@ public class StoreLockTests
 		using StringWriter output = new();
 		using StoreLock? held = StoreLock.TryAcquire(lockPath);
 		Assert.IsNotNull(held);
+		Import import = new() { InputPath = Path.Combine(Path.GetDirectoryName(lockPath)!, "missing.json") };
 
 		try
 		{
@@ -211,7 +212,7 @@ public class StoreLockTests
 
 			// The input file does not exist, so if the verb ran at all it would say so, and it
 			// would never reach a save.
-			new Import { InputPath = Path.Combine(Path.GetDirectoryName(lockPath)!, "missing.json") }.Run();
+			import.Run();
 		}
 		finally
 		{
@@ -219,6 +220,7 @@ public class StoreLockTests
 		}
 
 		string text = output.ToString();
+		Assert.IsTrue(import.Failed, "A run that did nothing because the store is locked must exit non-zero");
 		Assert.Contains(StoreLock.BusyMessage, text);
 		Assert.DoesNotContain("File not found", text);
 	}
