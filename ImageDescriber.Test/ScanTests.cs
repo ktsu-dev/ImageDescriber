@@ -1029,9 +1029,8 @@ public class ScanTests
 	private static Dictionary<string, ImageDescription> DescribedAt(params string[] files)
 	{
 		Dictionary<string, ImageDescription> descriptions = [];
-		foreach (string file in files)
+		foreach (AbsoluteFilePath path in files.Select(file => file.As<AbsoluteFilePath>()))
 		{
-			AbsoluteFilePath path = file.As<AbsoluteFilePath>();
 			string hash = ImageHasher.ComputeHash(path);
 			if (!descriptions.TryGetValue(hash, out ImageDescription? description))
 			{
@@ -1069,7 +1068,7 @@ public class ScanTests
 			Assert.AreEqual(1, pruned);
 			Assert.AreEqual(1, orphaned);
 			Assert.IsEmpty(descriptions[oldHash].KnownPaths);
-			Assert.IsFalse(descriptions.Values.Any(d => d.KnownPaths.Any(p => p.WeakString == photo)), "The edited file must not stay listed under its old hash.");
+			Assert.DoesNotContain(photo, descriptions.Values.SelectMany(d => d.KnownPaths).Select(p => p.WeakString), "The edited file must not stay listed under its old hash.");
 		}
 		finally
 		{

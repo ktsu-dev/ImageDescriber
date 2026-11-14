@@ -123,18 +123,7 @@ internal sealed class Scan : BaseVerb<Scan>
 
 		// Drop the paths under this root that no longer hold the image they were recorded for, so an
 		// edited, moved or deleted file stops turning up under its old description in Search.
-		(int prunedPaths, int orphanedRecords) = PruneStaleKnownPaths(Program.Settings.Descriptions, options.Path, fileHashes);
-		if (prunedPaths > 0)
-		{
-			Program.Settings.Save();
-			Console.WriteLine($"Removed {prunedPaths} path(s) whose file was deleted or changed since it was described.");
-			if (orphanedRecords > 0)
-			{
-				Console.WriteLine($"{orphanedRecords} description(s) no longer match any known file.");
-			}
-
-			Console.WriteLine();
-		}
+		PruneAndReportStaleKnownPaths(options.Path, fileHashes);
 
 		if (imageFiles.Count == 0)
 		{
@@ -240,6 +229,28 @@ internal sealed class Scan : BaseVerb<Scan>
 
 		existing.KnownPaths.Add(path);
 		return true;
+	}
+
+	/// <summary>
+	/// Prunes the stored paths under <paramref name="root"/> that this scan shows are stale, then saves
+	/// the store and reports what was removed when anything was.
+	/// </summary>
+	private static void PruneAndReportStaleKnownPaths(AbsoluteDirectoryPath root, IReadOnlyDictionary<AbsoluteFilePath, string> fileHashes)
+	{
+		(int prunedPaths, int orphanedRecords) = PruneStaleKnownPaths(Program.Settings.Descriptions, root, fileHashes);
+		if (prunedPaths == 0)
+		{
+			return;
+		}
+
+		Program.Settings.Save();
+		Console.WriteLine($"Removed {prunedPaths} path(s) whose file was deleted or changed since it was described.");
+		if (orphanedRecords > 0)
+		{
+			Console.WriteLine($"{orphanedRecords} description(s) no longer match any known file.");
+		}
+
+		Console.WriteLine();
 	}
 
 	/// <summary>
