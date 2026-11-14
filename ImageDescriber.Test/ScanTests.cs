@@ -8,6 +8,9 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 
+using System.IO.Abstractions.TestingHelpers;
+
+using ktsu.AppDataStorage;
 using ktsu.ImageDescriber.Verbs;
 using ktsu.Semantics.Paths;
 using ktsu.Semantics.Strings;
@@ -1171,6 +1174,75 @@ public class ScanTests
 		}
 		finally
 		{
+			Directory.Delete(root, recursive: true);
+		}
+	}
+
+	[TestMethod]
+	public void HashImageFilesReturnsNothingForAnEmptyFolder()
+	{
+		Dictionary<AbsoluteFilePath, string> hashes = Scan.HashImageFiles([], out IReadOnlyList<string> failures);
+
+		Assert.IsEmpty(hashes);
+		Assert.IsEmpty(failures);
+	}
+
+	[TestMethod]
+	public void PruneAndReportStaleKnownPathsSavesAndReportsWhatItRemoved()
+	{
+		string root = NewTempDirectory();
+		PersistentState originalSettings = Program.Settings;
+		TextWriter originalOut = Console.Out;
+		AppData.ConfigureForTesting(() => new MockFileSystem());
+		try
+		{
+			string photo = Path.Combine(root, "photo.jpg");
+			File.WriteAllBytes(photo, [1, 2, 3]);
+			Program.Settings = new PersistentState();
+			foreach (KeyValuePair<string, ImageDescription> kvp in DescribedAt(photo))
+			{
+				Program.Settings.Descriptions[kvp.Key] = kvp.Value;
+			}
+
+			File.Delete(photo);
+			using StringWriter output = new();
+			Console.SetOut(output);
+
+			Scan.PruneAndReportStaleKnownPaths(root.As<AbsoluteDirectoryPath>(), new Dictionary<AbsoluteFilePath, string>());
+
+			Assert.IsEmpty(Program.Settings.Descriptions.Values.Single().KnownPaths);
+			Assert.Contains("Removed 1 path(s)", output.ToString());
+			Assert.Contains("1 description(s) no longer match any known file.", output.ToString());
+		}
+		finally
+		{
+			Console.SetOut(originalOut);
+			Program.Settings = originalSettings;
+			AppData.ResetFileSystem();
+			Directory.Delete(root, recursive: true);
+		}
+	}
+
+	[TestMethod]
+	public void PruneAndReportStaleKnownPathsSaysNothingWhenNothingIsStale()
+	{
+		string root = NewTempDirectory();
+		PersistentState originalSettings = Program.Settings;
+		TextWriter originalOut = Console.Out;
+		try
+		{
+			Program.Settings = new PersistentState();
+			using StringWriter output = new();
+			Console.SetOut(output);
+
+			Scan.PruneAndReportStaleKnownPaths(root.As<AbsoluteDirectoryPath>(), new Dictionary<AbsoluteFilePath, string>());
+
+			Assert.AreEqual(string.Empty, output.ToString());
+		}
+		finally
+		{
+			Console.SetOut(originalOut);
+			Program.Settings = originalSettings;
 			Directory.Delete(root, recursive: true);
 		}
 	}

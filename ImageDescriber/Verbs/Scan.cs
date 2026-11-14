@@ -227,7 +227,7 @@ internal sealed class Scan : BaseVerb<Scan>
 	/// <summary>
 	/// Hashes the discovered images, printing progress when there are any to hash.
 	/// </summary>
-	private static Dictionary<AbsoluteFilePath, string> HashImageFiles(IReadOnlyList<AbsoluteFilePath> imageFiles, out IReadOnlyList<string> hashFailures)
+	internal static Dictionary<AbsoluteFilePath, string> HashImageFiles(IReadOnlyList<AbsoluteFilePath> imageFiles, out IReadOnlyList<string> hashFailures)
 	{
 		if (imageFiles.Count == 0)
 		{
@@ -245,7 +245,7 @@ internal sealed class Scan : BaseVerb<Scan>
 	/// Prunes the stored paths under <paramref name="root"/> that this scan shows are stale, then saves
 	/// the store and reports what was removed when anything was.
 	/// </summary>
-	private static void PruneAndReportStaleKnownPaths(AbsoluteDirectoryPath root, IReadOnlyDictionary<AbsoluteFilePath, string> fileHashes)
+	internal static void PruneAndReportStaleKnownPaths(AbsoluteDirectoryPath root, IReadOnlyDictionary<AbsoluteFilePath, string> fileHashes)
 	{
 		(int prunedPaths, int orphanedRecords) = PruneStaleKnownPaths(Program.Settings.Descriptions, root, fileHashes);
 		if (prunedPaths == 0)
