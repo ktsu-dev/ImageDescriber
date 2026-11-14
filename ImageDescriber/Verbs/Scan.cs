@@ -112,14 +112,7 @@ internal sealed class Scan : BaseVerb<Scan>
 		Console.WriteLine();
 
 		// Step 3: Hash all files in parallel
-		Dictionary<AbsoluteFilePath, string> fileHashes = [];
-		IReadOnlyList<string> hashFailures = [];
-		if (imageFiles.Count > 0)
-		{
-			Console.WriteLine("Hashing image files...");
-			fileHashes = ImageHasher.HashFiles(imageFiles, out hashFailures);
-			Console.WriteLine();
-		}
+		Dictionary<AbsoluteFilePath, string> fileHashes = HashImageFiles(imageFiles, out IReadOnlyList<string> hashFailures);
 
 		// Drop the paths under this root that no longer hold the image they were recorded for, so an
 		// edited, moved or deleted file stops turning up under its old description in Search.
@@ -229,6 +222,23 @@ internal sealed class Scan : BaseVerb<Scan>
 
 		existing.KnownPaths.Add(path);
 		return true;
+	}
+
+	/// <summary>
+	/// Hashes the discovered images, printing progress when there are any to hash.
+	/// </summary>
+	private static Dictionary<AbsoluteFilePath, string> HashImageFiles(IReadOnlyList<AbsoluteFilePath> imageFiles, out IReadOnlyList<string> hashFailures)
+	{
+		if (imageFiles.Count == 0)
+		{
+			hashFailures = [];
+			return [];
+		}
+
+		Console.WriteLine("Hashing image files...");
+		Dictionary<AbsoluteFilePath, string> fileHashes = ImageHasher.HashFiles(imageFiles, out hashFailures);
+		Console.WriteLine();
+		return fileHashes;
 	}
 
 	/// <summary>
