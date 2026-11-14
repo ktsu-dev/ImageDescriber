@@ -111,15 +111,35 @@ internal sealed class Scan : BaseVerb<Scan>
 		Console.WriteLine($"Found {imageFiles.Count} image(s).");
 		Console.WriteLine();
 
+		// Step 3: Hash all files in parallel
+		Dictionary<AbsoluteFilePath, string> fileHashes = [];
+		IReadOnlyList<string> hashFailures = [];
+		if (imageFiles.Count > 0)
+		{
+			Console.WriteLine("Hashing image files...");
+			fileHashes = ImageHasher.HashFiles(imageFiles, out hashFailures);
+			Console.WriteLine();
+		}
+
+		// Drop the paths under this root that no longer hold the image they were recorded for, so an
+		// edited, moved or deleted file stops turning up under its old description in Search.
+		(int prunedPaths, int orphanedRecords) = PruneStaleKnownPaths(Program.Settings.Descriptions, options.Path, fileHashes);
+		if (prunedPaths > 0)
+		{
+			Program.Settings.Save();
+			Console.WriteLine($"Removed {prunedPaths} path(s) whose file was deleted or changed since it was described.");
+			if (orphanedRecords > 0)
+			{
+				Console.WriteLine($"{orphanedRecords} description(s) no longer match any known file.");
+			}
+
+			Console.WriteLine();
+		}
+
 		if (imageFiles.Count == 0)
 		{
 			return;
 		}
-
-		// Step 3: Hash all files in parallel
-		Console.WriteLine("Hashing image files...");
-		Dictionary<AbsoluteFilePath, string> fileHashes = ImageHasher.HashFiles(imageFiles, out IReadOnlyList<string> hashFailures);
-		Console.WriteLine();
 
 		// Step 4: Filter out already-described hashes and deduplicate within this scan
 		Dictionary<string, ImageDescription> descriptions = Program.Settings.Descriptions;
@@ -220,6 +240,57 @@ internal sealed class Scan : BaseVerb<Scan>
 
 		existing.KnownPaths.Add(path);
 		return true;
+	}
+
+	/// <summary>
+	/// Removes the known paths under <paramref name="root"/> that no longer hold the image they were
+	/// recorded for: the file is gone, or this scan hashed it to a different image.
+	/// </summary>
+	/// <remarks>
+	/// Paths outside <paramref name="root"/> are left alone, so scanning one folder never prunes another.
+	/// A path that still exists but that this scan did not hash, such as one behind an unreadable
+	/// folder or a directory symlink, or one whose hash failed, is kept, since nothing shows it changed.
+	/// A record left with no paths is kept, so its description isn't lost if the file comes back.
+	/// </remarks>
+	/// <param name="descriptions">The stored descriptions, keyed by hash, whose paths are pruned in place.</param>
+	/// <param name="root">The folder that was scanned.</param>
+	/// <param name="fileHashes">The hash of every file this scan hashed under <paramref name="root"/>.</param>
+	/// <returns>The number of paths removed, and how many records that left with no paths.</returns>
+	internal static (int PrunedPaths, int OrphanedRecords) PruneStaleKnownPaths(
+		Dictionary<string, ImageDescription> descriptions,
+		AbsoluteDirectoryPath root,
+		IReadOnlyDictionary<AbsoluteFilePath, string> fileHashes)
+	{
+		StringComparison comparison = KnownPathComparison.IgnoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+		Dictionary<string, string> hashByPath = new(KnownPathComparison.IgnoreCase ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+		foreach (KeyValuePair<AbsoluteFilePath, string> kvp in fileHashes)
+		{
+			hashByPath[kvp.Key.WeakString] = kvp.Value;
+		}
+
+		string rootPrefix = System.IO.Path.TrimEndingDirectorySeparator(root.WeakString) + System.IO.Path.DirectorySeparatorChar;
+		int prunedPaths = 0;
+		int orphanedRecords = 0;
+		foreach (ImageDescription description in descriptions.Values)
+		{
+			int removed = description.KnownPaths.RemoveAll(path =>
+				IsUnder(path.WeakString) &&
+				(hashByPath.TryGetValue(path.WeakString, out string? hash)
+					? !string.Equals(hash, description.Hash, StringComparison.OrdinalIgnoreCase)
+					: !File.Exists(path.WeakString)));
+			prunedPaths += removed;
+			if (removed > 0 && description.KnownPaths.Count == 0)
+			{
+				orphanedRecords++;
+			}
+		}
+
+		return (prunedPaths, orphanedRecords);
+
+		bool IsUnder(string path) =>
+			path.StartsWith(rootPrefix, comparison) ||
+			(System.IO.Path.AltDirectorySeparatorChar != System.IO.Path.DirectorySeparatorChar &&
+				path.Replace(System.IO.Path.AltDirectorySeparatorChar, System.IO.Path.DirectorySeparatorChar).StartsWith(rootPrefix, comparison));
 	}
 
 	private static void PrintFailureSummary(string stage, IReadOnlyList<string> failures)
