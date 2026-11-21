@@ -306,6 +306,16 @@ internal sealed class Import : BaseVerb<Import>
 
 		if (records.Count < 2)
 		{
+			// A lone record that isn't the header is a data row with nothing to say which column is
+			// which, so it can't be read. Reporting it as unreadable lets Import fail rather than
+			// print "Skipped: 0" and exit 0 for a file that clearly held something.
+			if (records.Count == 1 && !IsHeader(records[0].Fields))
+			{
+				Console.WriteLine($"  Skipping line {records[0].LineNumber}: no header row, so its fields can't be read.");
+				unreadableCount = 1;
+				return entries;
+			}
+
 			Console.WriteLine("CSV file is empty or has no data rows.");
 			return entries;
 		}
@@ -371,15 +381,18 @@ internal sealed class Import : BaseVerb<Import>
 		return entries;
 	}
 
+	private static bool IsHeader(List<string> fields) =>
+		fields.Count > 0 && fields[0].Trim().Equals("Hash", StringComparison.OrdinalIgnoreCase);
+
 	/// <summary>
 	/// Splits a KnownPaths field. Current exports end every path with a line break; exports
 	/// written before that joined the paths with "; ", so a field without one is read that way.
+	/// The line break may come back as <c>\r\n</c> or a bare <c>\r</c> once a spreadsheet has saved
+	/// the file, and no path contains either character.
 	/// </summary>
 	internal static string[] SplitKnownPaths(string field) =>
-		field.Contains(Export.KnownPathTerminator, StringComparison.Ordinal)
-			? [.. field.Split(Export.KnownPathTerminator, StringSplitOptions.RemoveEmptyEntries)
-				.Select(p => p.TrimEnd('\r'))
-				.Where(p => p.Length > 0)]
+		field.AsSpan().IndexOfAny(Export.KnownPathTerminator, '\r') >= 0
+			? field.Split([Export.KnownPathTerminator, '\r'], StringSplitOptions.RemoveEmptyEntries)
 			: field.Split("; ", StringSplitOptions.RemoveEmptyEntries);
 
 	internal static List<string> ParseCsvLine(string line) =>
@@ -389,6 +402,11 @@ internal sealed class Import : BaseVerb<Import>
 	/// Splits CSV text into records per RFC 4180: a quoted field may contain commas, doubled
 	/// quotes and line breaks. Each record carries the 1-based line it starts on.
 	/// </summary>
+	/// <remarks>
+	/// A line ends at <c>\n</c>, <c>\r\n</c> or a bare <c>\r</c>, as in Python's <c>csv</c> module, so
+	/// a file saved with classic Mac line endings (Excel's "CSV (Macintosh)") reads as many records
+	/// rather than one.
+	/// </remarks>
 	/// <remarks>
 	/// A record is <c>Malformed</c> when a quoted field never closes, or when a closing quote is
 	/// followed by anything but a comma, a line break or the end of the text. A stray quote
@@ -425,8 +443,9 @@ internal sealed class Import : BaseVerb<Import>
 					fieldStarted = false;
 					recordHasContent = true;
 					break;
-				case '\r':
+				case '\r' when i < text.Length && text[i] == '\n':
 					break;
+				case '\r':
 				case '\n':
 					EndRecord();
 					line++;
@@ -471,13 +490,20 @@ internal sealed class Import : BaseVerb<Import>
 			return false;
 		}
 
-		while (i < text.Length && text[i] != '\n')
+		while (i < text.Length && text[i] is not ('\r' or '\n'))
 		{
 			i++;
 		}
 
 		return true;
 	}
+
+	/// <summary>
+	/// Reports whether the character at <paramref name="index"/> ends a line: a <c>\n</c>, or a <c>\r</c> not
+	/// followed by one.
+	/// </summary>
+	private static bool IsLineBreak(string text, int index) =>
+		text[index] == '\n' || (text[index] == '\r' && (index + 1 >= text.Length || text[index + 1] != '\n'));
 
 	/// <summary>
 	/// Reads a quoted field's contents into <paramref name="field"/>, starting just after its
@@ -492,7 +518,7 @@ internal sealed class Import : BaseVerb<Import>
 			char c = text[i++];
 			if (c != '"')
 			{
-				line += c == '\n' ? 1 : 0;
+				line += IsLineBreak(text, i - 1) ? 1 : 0;
 				field.Append(c);
 			}
 			else if (i < text.Length && text[i] == '"')

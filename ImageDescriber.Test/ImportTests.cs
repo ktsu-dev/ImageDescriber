@@ -308,6 +308,7 @@ public class ImportTests
 
 		Assert.AreSequenceEqual(expected, Import.SplitKnownPaths("/a/b.jpg\n/c/d.jpg\n"));
 		Assert.AreSequenceEqual(expected, Import.SplitKnownPaths("/a/b.jpg\r\n/c/d.jpg\r\n"));
+		Assert.AreSequenceEqual(expected, Import.SplitKnownPaths("/a/b.jpg\r/c/d.jpg\r"));
 		Assert.AreSequenceEqual(expected, Import.SplitKnownPaths("/a/b.jpg; /c/d.jpg"));
 		Assert.IsEmpty(Import.SplitKnownPaths(string.Empty));
 	}
@@ -725,5 +726,106 @@ public class ImportTests
 		Assert.Contains("Import complete.", output);
 		Assert.Contains("New entries:     0", output);
 		Assert.HasCount(2, settings.Descriptions);
+	}
+
+	private static string WithCrOnlyLineEndings(string text) => text.Replace("\r\n", "\r", StringComparison.Ordinal).Replace('\n', '\r');
+
+	[TestMethod]
+	public void ParseCsvRecordsEndsARecordAtABareCarriageReturn()
+	{
+		List<(int LineNumber, List<string> Fields, bool Malformed)> records = Import.ParseCsvRecords("h1,h2\r\"a\rb\",c\r\rd,\"e\"\"f\"\r");
+
+		Assert.HasCount(3, records);
+		Assert.AreSequenceEqual(ExpectedHeader, records[0].Fields);
+		Assert.AreSequenceEqual(["a\rb", "c"], records[1].Fields);
+		Assert.AreEqual(2, records[1].LineNumber);
+		Assert.AreSequenceEqual(ExpectedEscapedQuoteRecord, records[2].Fields);
+		Assert.AreEqual(5, records[2].LineNumber);
+	}
+
+	[TestMethod]
+	public void AnExportSavedWithCrOnlyLineEndingsImportsTheSameEntries()
+	{
+		string tempDir = Path.GetTempPath();
+		ImageDescription[] originals =
+		[
+			new()
+			{
+				Hash = new string('a', 64),
+				SuggestedFileName = "dog-on-beach.jpg".As<FileName>(),
+				KnownPaths = [Path.Combine(tempDir, "a.jpg").As<AbsoluteFilePath>(), Path.Combine(tempDir, "b.jpg").As<AbsoluteFilePath>()],
+				Model = "llava".As<OllamaModelName>(),
+				DescribedAt = new DateTime(2026, 9, 26, 7, 10, 12, DateTimeKind.Utc),
+				FileSizeBytes = 12345,
+				Description = "A dog on a beach.",
+			},
+			new()
+			{
+				Hash = new string('b', 64),
+				SuggestedFileName = "dog, cat 'n' friends.jpg".As<FileName>(),
+				KnownPaths = [Path.Combine(tempDir, "c.jpg").As<AbsoluteFilePath>()],
+				Model = "llava".As<OllamaModelName>(),
+				DescribedAt = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc),
+				FileSizeBytes = 1,
+				Description = "Two \"animals\".",
+			},
+		];
+		string export = Export.BuildCsv(originals);
+
+		List<ImageDescription> expected = Import.ParseCsv(export, out int expectedUnreadable);
+		List<ImageDescription> imported = Import.ParseCsv(WithCrOnlyLineEndings(export), out int unreadableCount);
+
+		Assert.AreEqual(0, expectedUnreadable);
+		Assert.AreEqual(0, unreadableCount);
+		Assert.HasCount(originals.Length, imported);
+		for (int i = 0; i < originals.Length; i++)
+		{
+			Assert.AreEqual(expected[i].Hash, imported[i].Hash);
+			Assert.AreEqual(expected[i].SuggestedFileName, imported[i].SuggestedFileName);
+			Assert.AreSequenceEqual(expected[i].KnownPaths, imported[i].KnownPaths);
+			Assert.AreEqual(expected[i].Model, imported[i].Model);
+			Assert.AreEqual(expected[i].DescribedAt, imported[i].DescribedAt);
+			Assert.AreEqual(expected[i].FileSizeBytes, imported[i].FileSizeBytes);
+			Assert.AreEqual(expected[i].Description, imported[i].Description);
+		}
+	}
+
+	[TestMethod]
+	public void RunImportsACsvWithCrOnlyLineEndings()
+	{
+		PersistentState settings = new();
+
+		(bool failed, string output) = RunImport(".csv", WithCrOnlyLineEndings(CsvWithRows(GoodCsvRow('d'), GoodCsvRow('e'))), settings);
+
+		Assert.IsFalse(failed, output);
+		Assert.Contains("New entries:     2", output);
+		Assert.HasCount(2, settings.Descriptions);
+	}
+
+	[TestMethod]
+	public void RunFailsForANonEmptyCsvThatYieldsNoDataRows()
+	{
+		PersistentState settings = new();
+
+		(bool failed, string output) = RunImport(".csv", GoodCsvRow('d') + "\n", settings);
+
+		Assert.IsTrue(failed, output);
+		Assert.IsEmpty(settings.Descriptions);
+		Assert.Contains("Skipped:         1", output);
+		Assert.DoesNotContain("Import complete.", output);
+	}
+
+	[TestMethod]
+	[DataRow("")]
+	[DataRow("\r\n")]
+	[DataRow("Hash,SuggestedFileName,KnownPaths,Model,DescribedAt,FileSizeBytes,Description\r\n")]
+	public void RunKeepsTheEmptyFileMessageForACsvWithNothingToImport(string content)
+	{
+		PersistentState settings = new();
+
+		(bool failed, string output) = RunImport(".csv", content, settings);
+
+		Assert.IsFalse(failed, output);
+		Assert.Contains("CSV file is empty or has no data rows.", output);
 	}
 }
