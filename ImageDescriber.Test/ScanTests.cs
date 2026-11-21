@@ -8,6 +8,9 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 
+using System.IO.Abstractions.TestingHelpers;
+
+using ktsu.AppDataStorage;
 using ktsu.ImageDescriber.Verbs;
 using ktsu.Semantics.Paths;
 using ktsu.Semantics.Strings;
@@ -1016,5 +1019,231 @@ public class ScanTests
 		});
 
 		return listener;
+	}
+
+	private static (int PrunedPaths, int OrphanedRecords) RescanAndPrune(Dictionary<string, ImageDescription> descriptions, string root)
+	{
+		AbsoluteDirectoryPath rootPath = root.As<AbsoluteDirectoryPath>();
+		IReadOnlyList<AbsoluteFilePath> files = ImageScanner.ScanForImages(rootPath);
+		Dictionary<AbsoluteFilePath, string> hashes = ImageHasher.HashFiles(files, out _);
+		return Scan.PruneStaleKnownPaths(descriptions, rootPath, hashes);
+	}
+
+	private static Dictionary<string, ImageDescription> DescribedAt(params string[] files)
+	{
+		Dictionary<string, ImageDescription> descriptions = [];
+		foreach (AbsoluteFilePath path in files.Select(file => file.As<AbsoluteFilePath>()))
+		{
+			string hash = ImageHasher.ComputeHash(path);
+			if (!descriptions.TryGetValue(hash, out ImageDescription? description))
+			{
+				description = new ImageDescription { Hash = hash, Description = "An image." };
+				descriptions[hash] = description;
+			}
+
+			description.KnownPaths.Add(path);
+		}
+
+		return descriptions;
+	}
+
+	private static string NewTempDirectory()
+	{
+		string dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+		Directory.CreateDirectory(dir);
+		return dir;
+	}
+
+	[TestMethod]
+	public void PruneStaleKnownPathsDropsAPathWhoseFileNowHashesToADifferentImage()
+	{
+		string root = NewTempDirectory();
+		try
+		{
+			string photo = Path.Combine(root, "photo.jpg");
+			File.WriteAllBytes(photo, [1, 2, 3]);
+			Dictionary<string, ImageDescription> descriptions = DescribedAt(photo);
+			string oldHash = descriptions.Keys.Single();
+
+			File.WriteAllBytes(photo, [4, 5, 6]);
+			(int pruned, int orphaned) = RescanAndPrune(descriptions, root);
+
+			Assert.AreEqual(1, pruned);
+			Assert.AreEqual(1, orphaned);
+			Assert.IsEmpty(descriptions[oldHash].KnownPaths);
+			Assert.DoesNotContain(photo, descriptions.Values.SelectMany(d => d.KnownPaths).Select(p => p.WeakString), "The edited file must not stay listed under its old hash.");
+		}
+		finally
+		{
+			Directory.Delete(root, recursive: true);
+		}
+	}
+
+	[TestMethod]
+	public void PruneStaleKnownPathsDropsADeletedFileButKeepsTheRecordsOtherPaths()
+	{
+		string root = NewTempDirectory();
+		try
+		{
+			string first = Path.Combine(root, "a.jpg");
+			string second = Path.Combine(root, "b.jpg");
+			File.WriteAllBytes(first, [1, 2, 3]);
+			File.WriteAllBytes(second, [1, 2, 3]);
+			Dictionary<string, ImageDescription> descriptions = DescribedAt(first, second);
+
+			File.Delete(first);
+			(int pruned, int orphaned) = RescanAndPrune(descriptions, root);
+
+			Assert.AreEqual(1, pruned);
+			Assert.AreEqual(0, orphaned);
+			Assert.AreSequenceEqual([second.As<AbsoluteFilePath>()], descriptions.Values.Single().KnownPaths);
+		}
+		finally
+		{
+			Directory.Delete(root, recursive: true);
+		}
+	}
+
+	[TestMethod]
+	public void PruneStaleKnownPathsLeavesPathsOutsideTheScannedRootAlone()
+	{
+		string parent = NewTempDirectory();
+		try
+		{
+			string scanned = Path.Combine(parent, "scanned");
+			string sibling = Path.Combine(parent, "scanned-other");
+			Directory.CreateDirectory(scanned);
+			Directory.CreateDirectory(sibling);
+			string inSibling = Path.Combine(sibling, "a.jpg");
+			string inParent = Path.Combine(parent, "b.jpg");
+			File.WriteAllBytes(inSibling, [1, 2, 3]);
+			File.WriteAllBytes(inParent, [7, 8, 9]);
+			Dictionary<string, ImageDescription> descriptions = DescribedAt(inSibling, inParent);
+
+			// Both files are deleted, and the other edited, but neither is under the scanned folder.
+			File.Delete(inSibling);
+			File.WriteAllBytes(inParent, [0]);
+			(int pruned, _) = RescanAndPrune(descriptions, scanned);
+
+			Assert.AreEqual(0, pruned);
+			Assert.AreEqual(2, descriptions.Values.Sum(d => d.KnownPaths.Count));
+		}
+		finally
+		{
+			Directory.Delete(parent, recursive: true);
+		}
+	}
+
+	[TestMethod]
+	public void PruneStaleKnownPathsKeepsAnExistingFileThisScanDidNotHash()
+	{
+		string root = NewTempDirectory();
+		try
+		{
+			string photo = Path.Combine(root, "photo.jpg");
+			File.WriteAllBytes(photo, [1, 2, 3]);
+			Dictionary<string, ImageDescription> descriptions = DescribedAt(photo);
+
+			// A hash failure, or a folder the scan couldn't read, leaves the file out of the hashes.
+			(int pruned, _) = Scan.PruneStaleKnownPaths(descriptions, root.As<AbsoluteDirectoryPath>(), new Dictionary<AbsoluteFilePath, string>());
+
+			Assert.AreEqual(0, pruned);
+			Assert.HasCount(1, descriptions.Values.Single().KnownPaths);
+		}
+		finally
+		{
+			Directory.Delete(root, recursive: true);
+		}
+	}
+
+	[TestMethod]
+	public void PruneStaleKnownPathsKeepsAnUnchangedFile()
+	{
+		string root = NewTempDirectory();
+		try
+		{
+			string photo = Path.Combine(root, "sub", "photo.jpg");
+			Directory.CreateDirectory(Path.GetDirectoryName(photo)!);
+			File.WriteAllBytes(photo, [1, 2, 3]);
+			Dictionary<string, ImageDescription> descriptions = DescribedAt(photo);
+
+			(int pruned, _) = RescanAndPrune(descriptions, root + Path.DirectorySeparatorChar);
+
+			Assert.AreEqual(0, pruned);
+			Assert.HasCount(1, descriptions.Values.Single().KnownPaths);
+		}
+		finally
+		{
+			Directory.Delete(root, recursive: true);
+		}
+	}
+
+	[TestMethod]
+	public void HashImageFilesReturnsNothingForAnEmptyFolder()
+	{
+		Dictionary<AbsoluteFilePath, string> hashes = Scan.HashImageFiles([], out IReadOnlyList<string> failures);
+
+		Assert.IsEmpty(hashes);
+		Assert.IsEmpty(failures);
+	}
+
+	[TestMethod]
+	public void PruneAndReportStaleKnownPathsSavesAndReportsWhatItRemoved()
+	{
+		string root = NewTempDirectory();
+		PersistentState originalSettings = Program.Settings;
+		TextWriter originalOut = Console.Out;
+		AppData.ConfigureForTesting(() => new MockFileSystem());
+		try
+		{
+			string photo = Path.Combine(root, "photo.jpg");
+			File.WriteAllBytes(photo, [1, 2, 3]);
+			Program.Settings = new PersistentState();
+			foreach (KeyValuePair<string, ImageDescription> kvp in DescribedAt(photo))
+			{
+				Program.Settings.Descriptions[kvp.Key] = kvp.Value;
+			}
+
+			File.Delete(photo);
+			using StringWriter output = new();
+			Console.SetOut(output);
+
+			Scan.PruneAndReportStaleKnownPaths(root.As<AbsoluteDirectoryPath>(), new Dictionary<AbsoluteFilePath, string>());
+
+			Assert.IsEmpty(Program.Settings.Descriptions.Values.Single().KnownPaths);
+			Assert.Contains("Removed 1 path(s)", output.ToString());
+			Assert.Contains("1 description(s) no longer match any known file.", output.ToString());
+		}
+		finally
+		{
+			Console.SetOut(originalOut);
+			Program.Settings = originalSettings;
+			AppData.ResetFileSystem();
+			Directory.Delete(root, recursive: true);
+		}
+	}
+
+	[TestMethod]
+	public void PruneAndReportStaleKnownPathsSaysNothingWhenNothingIsStale()
+	{
+		string root = NewTempDirectory();
+		PersistentState originalSettings = Program.Settings;
+		TextWriter originalOut = Console.Out;
+		try
+		{
+			Program.Settings = new PersistentState();
+			using StringWriter output = new();
+			Console.SetOut(output);
+
+			Scan.PruneAndReportStaleKnownPaths(root.As<AbsoluteDirectoryPath>(), new Dictionary<AbsoluteFilePath, string>());
+
+			Assert.AreEqual(string.Empty, output.ToString());
+		}
+		finally
+		{
+			Console.SetOut(originalOut);
+			Program.Settings = originalSettings;
+			Directory.Delete(root, recursive: true);
+		}
 	}
 }
