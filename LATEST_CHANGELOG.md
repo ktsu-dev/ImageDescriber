@@ -1,6 +1,7 @@
-## v1.2.19-pre.1 (prerelease)
+## v1.2.19-pre.2 (prerelease)
 
-Changes since v1.2.18:
+Changes since v1.2.19-pre.1:
 
-- Bump TestableIO.System.IO.Abstractions.TestingHelpers from 23.0.0 to 23.0.1 (dependabot[bot])
+- Bump TestableIO.System.IO.Abstractions.TestingHelpers from 23.0.1 to 23.1.0 (dependabot[bot])
+- Bump Polyfill from 11.4.5 to 12.0.0 (dependabot[bot])
 
